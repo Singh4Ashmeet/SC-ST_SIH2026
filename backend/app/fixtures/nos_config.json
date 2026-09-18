@@ -1,0 +1,116 @@
+{
+  "scheme_code": "NOS",
+  "version": 1,
+  "eligibility_rules": [
+    {
+      "field": "qualifying_exam_percent",
+      "condition": {
+        ">=": [
+          { "var": "qualifying_exam_percent" },
+          60
+        ]
+      },
+      "failure_message": "Minimum 60% aggregate marks required in qualifying degree."
+    },
+    {
+      "field": "admission_confirmed",
+      "condition": {
+        "==": [
+          { "var": "admission_confirmed" },
+          true
+        ]
+      },
+      "failure_message": "Unconditional foreign university admission offer required."
+    },
+    {
+      "field": "age",
+      "condition": {
+        "<=": [
+          { "var": "age" },
+          35
+        ]
+      },
+      "failure_message": "Applicant age must not exceed 35 years."
+    }
+  ],
+  "required_documents": [
+    {
+      "doc_type": "passport",
+      "label": "Valid Indian Passport",
+      "required": true,
+      "accepted_formats": ["pdf"]
+    },
+    {
+      "doc_type": "admission_letter",
+      "label": "Unconditional Foreign University Admission Letter",
+      "required": true,
+      "accepted_formats": ["pdf"]
+    },
+    {
+      "doc_type": "degree_transcript",
+      "label": "Graduation Degree & Official Transcripts",
+      "required": true,
+      "accepted_formats": ["pdf"]
+    },
+    {
+      "doc_type": "ielts_toefl_scorecard",
+      "label": "Language Proficiency Scorecard",
+      "required": false,
+      "accepted_formats": ["pdf", "jpg", "png"]
+    }
+  ],
+  "workflow_states": [
+    { "name": "submitted", "label": "Application Submitted", "is_terminal": false },
+    { "name": "eligibility_check", "label": "Automated Eligibility Check", "is_terminal": false },
+    { "name": "document_scrutiny", "label": "Embassy & Officer Verification", "is_terminal": false },
+    { "name": "selection", "label": "National Selection Committee", "is_terminal": false },
+    { "name": "approved", "label": "Provisional Award Granted", "is_terminal": false },
+    { "name": "visa_issued", "label": "Visa & Airfare Finalized", "is_terminal": true },
+    { "name": "rejected", "label": "Disqualified / Rejected", "is_terminal": true }
+  ],
+  "workflow_transitions": [
+    {
+      "from_state": "submitted",
+      "to_state": "eligibility_check",
+      "trigger": "start_automated_check",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "eligibility_check",
+      "to_state": "document_scrutiny",
+      "trigger": "eligibility_passed",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "eligibility_check",
+      "to_state": "rejected",
+      "trigger": "eligibility_failed",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "document_scrutiny",
+      "to_state": "selection",
+      "trigger": "documents_verified",
+      "allowed_roles": ["SCRUTINY_OFFICER", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "selection",
+      "to_state": "approved",
+      "trigger": "committee_approved",
+      "allowed_roles": ["SELECTION_COMMITTEE", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "selection",
+      "to_state": "rejected",
+      "trigger": "committee_rejected",
+      "allowed_roles": ["SELECTION_COMMITTEE", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "approved",
+      "to_state": "visa_issued",
+      "trigger": "grant_issued",
+      "allowed_roles": ["SCHEME_ADMIN", "SUPER_ADMIN"]
+    }
+  ],
+  "initial_state": "submitted"
+}

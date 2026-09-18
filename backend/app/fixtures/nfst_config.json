@@ -1,0 +1,129 @@
+{
+  "scheme_code": "NFST",
+  "version": 1,
+  "eligibility_rules": [
+    {
+      "field": "age",
+      "condition": {
+        "<=": [
+          { "var": "age" },
+          36
+        ]
+      },
+      "failure_message": "Applicant age must be 36 years or below."
+    },
+    {
+      "field": "annual_income",
+      "condition": {
+        "<=": [
+          { "var": "annual_income" },
+          600000
+        ]
+      },
+      "failure_message": "Annual family income must not exceed INR 6,00,000."
+    },
+    {
+      "field": "category",
+      "condition": {
+        "==": [
+          { "var": "category" },
+          "ST"
+        ]
+      },
+      "failure_message": "Candidate must belong to Scheduled Tribe (ST) category."
+    }
+  ],
+  "required_documents": [
+    {
+      "doc_type": "caste_certificate",
+      "label": "Caste / Tribe Certificate",
+      "required": true,
+      "accepted_formats": ["pdf", "jpg", "png"]
+    },
+    {
+      "doc_type": "income_certificate",
+      "label": "Family Income Certificate",
+      "required": true,
+      "accepted_formats": ["pdf", "jpg"]
+    },
+    {
+      "doc_type": "marksheet",
+      "label": "Post-Graduate Qualifying Marksheet",
+      "required": true,
+      "accepted_formats": ["pdf"]
+    },
+    {
+      "doc_type": "bonafide_certificate",
+      "label": "University Bonafide Research Certificate",
+      "required": true,
+      "accepted_formats": ["pdf"]
+    }
+  ],
+  "workflow_states": [
+    { "name": "submitted", "label": "Application Submitted", "is_terminal": false },
+    { "name": "eligibility_check", "label": "Automated Eligibility Evaluation", "is_terminal": false },
+    { "name": "document_scrutiny", "label": "Officer Document Scrutiny", "is_terminal": false },
+    { "name": "deficient", "label": "Document Correction Required", "is_terminal": false },
+    { "name": "selection", "label": "Selection Committee Scoring", "is_terminal": false },
+    { "name": "approved", "label": "Fellowship Awarded", "is_terminal": false },
+    { "name": "disbursed", "label": "Fellowship Disbursed", "is_terminal": true },
+    { "name": "rejected", "label": "Application Rejected", "is_terminal": true }
+  ],
+  "workflow_transitions": [
+    {
+      "from_state": "submitted",
+      "to_state": "eligibility_check",
+      "trigger": "auto_evaluate",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "eligibility_check",
+      "to_state": "document_scrutiny",
+      "trigger": "eligibility_passed",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "eligibility_check",
+      "to_state": "rejected",
+      "trigger": "eligibility_failed",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "document_scrutiny",
+      "to_state": "selection",
+      "trigger": "documents_verified",
+      "allowed_roles": ["SCRUTINY_OFFICER", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "document_scrutiny",
+      "to_state": "deficient",
+      "trigger": "documents_flagged_deficient",
+      "allowed_roles": ["SCRUTINY_OFFICER", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "deficient",
+      "to_state": "document_scrutiny",
+      "trigger": "resubmitted",
+      "allowed_roles": []
+    },
+    {
+      "from_state": "selection",
+      "to_state": "approved",
+      "trigger": "committee_approved",
+      "allowed_roles": ["SELECTION_COMMITTEE", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "selection",
+      "to_state": "rejected",
+      "trigger": "committee_rejected",
+      "allowed_roles": ["SELECTION_COMMITTEE", "SUPER_ADMIN"]
+    },
+    {
+      "from_state": "approved",
+      "to_state": "disbursed",
+      "trigger": "disbursed",
+      "allowed_roles": ["SCHEME_ADMIN", "SUPER_ADMIN"]
+    }
+  ],
+  "initial_state": "submitted"
+}
