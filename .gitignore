@@ -1,0 +1,53 @@
+# ─── Environment & Secrets ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+backend/.env
+
+# ─── Dependencies & Build Artifacts ──────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.egg-info/
+
+# ─── Python Bytecode & Testing ───────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+env/
+
+# ─── SQLite & Local Databases ────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ─── Demo Context & Generated Demo Artifacts ─────────────────────
+# Contains seeded login credentials and dynamic run IDs
+demo_context.json
+backend/scripts/demo_context.json
+sample_clean_income_certificate.pdf
+test_app.json
+test_sample.png
+
+# ─── OS & IDE Files ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.vscode/
+.idea/
+.postqode/
+.gemini/
+.agents/
