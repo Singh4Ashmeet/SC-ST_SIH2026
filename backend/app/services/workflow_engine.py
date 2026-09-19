@@ -19,6 +19,7 @@ from app.schemas.scheme_config import SchemeConfig, WorkflowTransition
 from app.services.eligibility_engine import EligibilityResult, evaluate_eligibility
 from app.services.deficiency_service import check_application_documents, DeficiencyCheck
 from app.models.document import Document
+from app.services.notification_service import notification_service, NotificationEvent
 
 
 class InvalidTransitionError(ValueError):
@@ -228,6 +229,18 @@ class WorkflowEngine:
 
         self.db.commit()
         self.db.refresh(application)
+
+        # Dispatch notifications for key lifecycle transitions
+        if trigger == "eligibility_failed":
+            notification_service.notify(NotificationEvent.ELIGIBILITY_FAILED, application, details)
+        elif trigger == "documents_verified":
+            notification_service.notify(NotificationEvent.DOCUMENTS_VERIFIED, application, details)
+        elif trigger == "documents_flagged_deficient":
+            notification_service.notify(NotificationEvent.DOCUMENTS_DEFICIENT, application, details)
+        elif trigger == "committee_approved" or ("approv" in trigger.lower() and "reject" not in new_state.lower()):
+            notification_service.notify(NotificationEvent.SELECTION_APPROVED, application, details)
+        elif trigger == "committee_rejected" or (from_state == "selection" and "reject" in new_state.lower()):
+            notification_service.notify(NotificationEvent.SELECTION_REJECTED, application, details)
 
         return application
 

@@ -17,7 +17,6 @@ from app.core.deps import (
     get_current_user,
     require_any_role,
     require_scheme_admin,
-    require_applicant_or_any_role,
 )
 from app.models.audit_log import AuditLog
 from app.models.scheme import Scheme
@@ -192,12 +191,12 @@ def create_scheme(
 @router.get("", response_model=List[SchemeRead])
 def list_schemes(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
+    current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> List[Scheme]:
     """List all schemes, optionally filtered by is_active.
 
-    Any authenticated role or applicant portal can access.
+    Requires any authenticated role.
     """
     query = select(Scheme)
     if is_active is not None:
@@ -209,12 +208,12 @@ def list_schemes(
 @router.get("/{scheme_id}", response_model=SchemeRead)
 def get_scheme(
     scheme_id: UUID,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
+    current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> Scheme:
     """Fetch a scheme by ID.
 
-    Any authenticated role or applicant portal can access.
+    Requires any authenticated role.
     Returns 404 if not found.
     """
     scheme = db.execute(
@@ -231,12 +230,12 @@ def get_scheme(
 @router.get("/by-code/{code}", response_model=SchemeRead)
 def get_scheme_by_code(
     code: str,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
+    current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> Scheme:
     """Fetch a scheme by code.
 
-    Any authenticated role or applicant portal can access.
+    Requires any authenticated role.
     Returns 404 if not found.
     Used internally by workflow/eligibility engines.
     """

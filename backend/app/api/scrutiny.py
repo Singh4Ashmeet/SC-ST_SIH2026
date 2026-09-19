@@ -15,14 +15,13 @@ from app.core.deps import (
     get_current_user,
     require_any_role,
     require_scrutiny_officer,
-    require_applicant_or_any_role,
-    require_applicant_or_scrutiny,
 )
 from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentStatus
 from app.models.scheme import Scheme
 from app.models.user import User
+from app.schemas.application import ApplicationRead
 from app.schemas.document import DocumentRead
 from app.services.scheme_config_validator import validate_scheme_config
 from app.services.document_processing_service import process_document
@@ -53,6 +52,9 @@ def _validate_file_extension(filename: str, accepted_formats: List[str]) -> bool
     return ext in [fmt.lower() for fmt in accepted_formats]
 
 
+# Intentionally unauthenticated: applicant self-service submission flow triggers initial scrutiny check.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.post(
     "/{application_id}/run-document-scrutiny",
     response_model=Dict[str, Any],
@@ -60,7 +62,6 @@ def _validate_file_extension(filename: str, accepted_formats: List[str]) -> bool
 )
 def run_document_scrutiny(
     application_id: uuid.UUID,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_scrutiny)] = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -108,18 +109,20 @@ def run_document_scrutiny(
         }
 
     return {
-        "application": updated_application,
+        "application": ApplicationRead.model_validate(updated_application),
         "deficiency_breakdown": deficiency_breakdown,
     }
 
 
+# Intentionally unauthenticated: applicant self-service deficiency review.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.get(
     "/{application_id}/deficiency-summary",
     response_model=Dict[str, Any],
 )
 def get_deficiency_summary(
     application_id: uuid.UUID,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -165,6 +168,9 @@ def get_deficiency_summary(
     }
 
 
+# Intentionally unauthenticated: applicant self-service document resubmission.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.post(
     "/{application_id}/documents/{document_id}/resubmit",
     response_model=Dict[str, Any],
@@ -174,7 +180,6 @@ async def resubmit_document(
     application_id: uuid.UUID,
     document_id: uuid.UUID,
     file: Annotated[UploadFile, File(...)],
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -281,7 +286,7 @@ async def resubmit_document(
     audit_log = AuditLog(
         application_id=application_id,
         scheme_id=scheme.id,
-        actor_user_id=current_user.id if current_user else None,
+        actor_user_id=None,
         action="document_resubmitted",
         details={
             "doc_type": document.doc_type,
@@ -313,7 +318,7 @@ async def resubmit_document(
                 application = engine.apply_transition(
                     application=application,
                     trigger="resubmitted",
-                    actor_user_id=current_user.id if current_user else None,
+                    actor_user_id=None,
                     details={"resubmitted_document_id": str(document_id)}
                 )
                 auto_transitioned = True

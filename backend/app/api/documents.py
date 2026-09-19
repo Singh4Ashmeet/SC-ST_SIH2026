@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_any_role, require_scrutiny_officer, require_applicant_or_any_role
+from app.core.deps import get_current_user, require_any_role, require_scrutiny_officer
 from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentStatus
@@ -55,6 +55,9 @@ def _validate_file_extension(filename: str, accepted_formats: List[str]) -> bool
     return ext in [fmt.lower() for fmt in accepted_formats]
 
 
+# Intentionally unauthenticated: applicant self-service document upload.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.post(
     "/{application_id}/documents",
     response_model=DocumentRead,
@@ -64,7 +67,6 @@ async def upload_document(
     application_id: uuid.UUID,
     doc_type: Annotated[str, Form(...)],
     file: Annotated[UploadFile, File(...)],
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
     db: Session = Depends(get_db),
 ) -> DocumentRead:
     """
@@ -163,7 +165,7 @@ async def upload_document(
     audit_log = AuditLog(
         application_id=application_id,
         scheme_id=scheme.id,
-        actor_user_id=current_user.id if current_user else None,
+        actor_user_id=None,
         action="document_uploaded",
         details={
             "doc_type": doc_type,
@@ -203,13 +205,15 @@ async def upload_document(
     )
 
 
+# Intentionally unauthenticated: applicant self-service document listing.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.get(
     "/{application_id}/documents",
     response_model=List[DocumentRead],
 )
 def list_documents(
     application_id: uuid.UUID,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
     db: Session = Depends(get_db),
 ) -> List[DocumentRead]:
     """

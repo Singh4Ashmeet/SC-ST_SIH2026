@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_any_role, require_applicant_or_any_role
+from app.core.deps import get_current_user, require_any_role
 from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.models.scheme import Scheme
@@ -21,6 +21,7 @@ from app.schemas.application import ApplicationCreate, ApplicationRead
 from app.schemas.scheme_config import WorkflowTransition
 from app.services.workflow_engine import WorkflowEngine, InvalidTransitionError
 from app.services.eligibility_engine import EligibilityResult, FailedRule
+from app.services.notification_service import notification_service, NotificationEvent
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
@@ -51,6 +52,9 @@ def list_applications(
     return applications
 
 
+# Intentionally unauthenticated: applicant self-service endpoint.
+# Access control is via the unguessable applicationId in the URL (generated upon creation),
+# per the plan's stated hackathon-scope limitation.
 @router.post("", response_model=ApplicationRead, status_code=201)
 def create_application(
     payload: ApplicationCreate,
@@ -99,16 +103,24 @@ def create_application(
     db.commit()
     db.refresh(application)
 
+    notification_service.notify(
+        NotificationEvent.APPLICATION_SUBMITTED,
+        application,
+        {"scheme_code": scheme.code},
+    )
+
     return application
 
 
+# Intentionally unauthenticated: applicant self-service status page.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.get("/{application_id}", response_model=ApplicationRead)
 def get_application(
     application_id: uuid.UUID,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> Application:
-    """Fetch an application by ID with its current state. Requires authentication or applicant portal access."""
+    """Fetch an application by ID with its current state. Intentionally unauthenticated for applicant self-service."""
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -249,10 +261,12 @@ class RunEligibilityCheckResponse(BaseModel):
     eligibility_result: EligibilityResultRead
 
 
+# Intentionally unauthenticated: applicant self-service evaluation flow.
+# Access control is via the unguessable applicationId in the URL,
+# per the plan's stated hackathon-scope limitation.
 @router.post("/{application_id}/run-eligibility-check", response_model=RunEligibilityCheckResponse)
 def run_eligibility_check(
     application_id: uuid.UUID,
-    current_user: Annotated[Optional[User], Depends(require_applicant_or_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> RunEligibilityCheckResponse:
     """
@@ -264,7 +278,7 @@ def run_eligibility_check(
     or eligibility_failed -> rejected) and returns the updated application
     plus detailed eligibility results.
 
-    Requires any authenticated role or applicant portal access.
+    Intentionally unauthenticated for applicant self-service.
     """
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
@@ -278,7 +292,7 @@ def run_eligibility_check(
     if application.current_state == config.initial_state:
         for transition in config.workflow_transitions:
             if transition.from_state == application.current_state and transition.to_state == "eligibility_check":
-                application = engine.apply_transition(application, transition.trigger, actor_user_id=current_user.id if current_user else None)
+                application = engine.apply_transition(application, transition.trigger, actor_user_id=None)
                 break
 
     try:

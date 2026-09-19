@@ -104,6 +104,21 @@ class TestApplication(TestBase, TestBaseModelMixin):
 TestScheme.applications = relationship("TestApplication", back_populates="scheme", cascade="all, delete-orphan")
 
 
+class TestDocument(TestBase, TestBaseModelMixin):
+    __tablename__ = "documents"
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    doc_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=True, default="application/octet-stream")
+    status: Mapped[str] = mapped_column(String(20), default="PENDING", server_default="PENDING", nullable=False)
+    extracted_fields: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    deficiency_reasons: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class TestAuditLog(TestBase, TestUUIDMixin):
     __tablename__ = "audit_logs"
     application_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -417,15 +432,33 @@ class TestApplicationEndpointsAuth:
         db.refresh(app)
         return app
 
-    def test_get_application_requires_auth(self, super_admin_client: TestClient, unauthenticated_client: TestClient, application):
-        """GET /applications/{id} requires authentication."""
+    def test_get_application_public(self, super_admin_client: TestClient, unauthenticated_client: TestClient, application):
+        """GET /applications/{id} is public for applicant self-service."""
         res = unauthenticated_client.get(f"/api/applications/{application.id}")
-        assert res.status_code == 401
+        assert res.status_code == 200
+        assert res.json()["id"] == str(application.id)
 
-        # Any authenticated role can access
+        # Authenticated client can also access
         res = super_admin_client.get(f"/api/applications/{application.id}")
         assert res.status_code == 200
         assert res.json()["id"] == str(application.id)
+
+    def test_create_application_public(self, unauthenticated_client: TestClient, scheme):
+        """POST /applications is public for applicant self-service."""
+        res = unauthenticated_client.post("/api/applications", json={
+            "scheme_id": str(scheme.id),
+            "applicant_name": "Public Applicant",
+            "applicant_email": "public@test.com",
+            "applicant_phone": "9876543210",
+            "applicant_data": {"category": "ST", "annual_income": 300000},
+        })
+        assert res.status_code == 201
+        assert "id" in res.json()
+
+    def test_list_applications_requires_auth(self, unauthenticated_client: TestClient):
+        """GET /applications (admin list) requires authentication."""
+        res = unauthenticated_client.get("/api/applications")
+        assert res.status_code == 401
 
     def test_available_transitions_requires_auth(self, unauthenticated_client: TestClient, application):
         """GET /applications/{id}/available-transitions requires authentication."""
@@ -440,12 +473,27 @@ class TestApplicationEndpointsAuth:
         })
         assert res.status_code == 401
 
-    def test_run_eligibility_check_requires_auth(self, unauthenticated_client: TestClient, application):
-        """POST /applications/{id}/run-eligibility-check requires authentication."""
+    def test_run_eligibility_check_public(self, unauthenticated_client: TestClient, application):
+        """POST /applications/{id}/run-eligibility-check is public for applicant self-service."""
         res = unauthenticated_client.post(f"/api/applications/{application.id}/run-eligibility-check")
-        assert res.status_code == 401
+        assert res.status_code == 200
+        assert "eligibility_result" in res.json()
 
     def test_audit_log_requires_auth(self, unauthenticated_client: TestClient, application):
         """GET /applications/{id}/audit-log requires authentication."""
         res = unauthenticated_client.get(f"/api/applications/{application.id}/audit-log")
         assert res.status_code == 401
+
+    def test_deficiency_summary_public(self, unauthenticated_client: TestClient, application):
+        """GET /applications/{id}/deficiency-summary is public for applicant self-service."""
+        res = unauthenticated_client.get(f"/api/applications/{application.id}/deficiency-summary")
+        assert res.status_code == 200
+        assert "documents" in res.json()
+
+    def test_run_document_scrutiny_public(self, unauthenticated_client: TestClient, application):
+        """POST /applications/{id}/run-document-scrutiny is public for applicant self-service."""
+        # First advance state via eligibility check
+        unauthenticated_client.post(f"/api/applications/{application.id}/run-eligibility-check")
+        res = unauthenticated_client.post(f"/api/applications/{application.id}/run-document-scrutiny")
+        assert res.status_code == 200
+        assert "deficiency_breakdown" in res.json()
