@@ -37,29 +37,25 @@ export class ApiError extends Error {
 
 export async function apiFetch<T = unknown>(
   path: string,
-  options: RequestInit & { applicantPortal?: boolean } = {}
+  options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
-  const { applicantPortal, ...fetchOptions } = options;
   const headers: Record<string, string> = {
-    ...(fetchOptions.headers as Record<string, string> || {}),
+    ...(options.headers as Record<string, string> || {}),
   };
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  if (applicantPortal) {
-    headers["X-Applicant-Portal"] = "true";
-  }
 
   // Don't set Content-Type for FormData (browser sets boundary automatically)
-  if (!(fetchOptions.body instanceof FormData)) {
+  if (!(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
-    ...fetchOptions,
+    ...options,
     headers,
   });
 
@@ -170,11 +166,11 @@ export interface SchemeRead {
 
 export async function getSchemes(isActive?: boolean): Promise<SchemeRead[]> {
   const params = isActive !== undefined ? `?is_active=${isActive}` : "";
-  return apiFetch<SchemeRead[]>(`/api/schemes${params}`, { applicantPortal: true });
+  return apiFetch<SchemeRead[]>(`/api/schemes${params}`);
 }
 
 export async function getScheme(id: string): Promise<SchemeRead> {
-  return apiFetch<SchemeRead>(`/api/schemes/${id}`, { applicantPortal: true });
+  return apiFetch<SchemeRead>(`/api/schemes/${id}`);
 }
 
 export async function createScheme(data: {
@@ -258,7 +254,7 @@ export async function getApplications(params?: {
 }
 
 export async function getApplication(id: string): Promise<ApplicationRead> {
-  return apiFetch<ApplicationRead>(`/api/applications/${id}`, { applicantPortal: true });
+  return apiFetch<ApplicationRead>(`/api/applications/${id}`);
 }
 
 export interface CreateApplicationRequest {
@@ -275,7 +271,6 @@ export async function createApplication(
   return apiFetch<ApplicationRead>("/api/applications", {
     method: "POST",
     body: JSON.stringify(data),
-    applicantPortal: true,
   });
 }
 
@@ -333,7 +328,7 @@ export interface DocumentRead {
 }
 
 export async function getDocuments(applicationId: string): Promise<DocumentRead[]> {
-  return apiFetch<DocumentRead[]>(`/api/applications/${applicationId}/documents`, { applicantPortal: true });
+  return apiFetch<DocumentRead[]>(`/api/applications/${applicationId}/documents`);
 }
 
 // ── Scrutiny API ─────────────────────────────────────────────────────────────
@@ -356,8 +351,7 @@ export async function getDeficiencySummary(
   applicationId: string
 ): Promise<DeficiencySummary> {
   return apiFetch<DeficiencySummary>(
-    `/api/applications/${applicationId}/deficiency-summary`,
-    { applicantPortal: true }
+    `/api/applications/${applicationId}/deficiency-summary`
   );
 }
 
@@ -366,7 +360,7 @@ export async function runDocumentScrutiny(
 ): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>(
     `/api/applications/${applicationId}/run-document-scrutiny`,
-    { method: "POST", applicantPortal: true }
+    { method: "POST" }
   );
 }
 
@@ -375,7 +369,7 @@ export async function runEligibilityCheck(
 ): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>(
     `/api/applications/${applicationId}/run-eligibility-check`,
-    { method: "POST", applicantPortal: true }
+    { method: "POST" }
   );
 }
 
@@ -388,6 +382,142 @@ export async function resubmitDocument(
   formData.append("file", file);
   return apiFetch<Record<string, unknown>>(
     `/api/applications/${applicationId}/documents/${documentId}/resubmit`,
-    { method: "POST", body: formData, applicantPortal: true }
+    { method: "POST", body: formData }
   );
+}
+
+// ── Transitions API ──────────────────────────────────────────────────────────
+
+export async function applyTransition(
+  applicationId: string,
+  trigger: string,
+  details?: Record<string, unknown>
+): Promise<ApplicationRead> {
+  return apiFetch<ApplicationRead>(`/api/applications/${applicationId}/transition`, {
+    method: "POST",
+    body: JSON.stringify({ trigger, details }),
+  });
+}
+
+export async function getAvailableTransitions(
+  applicationId: string
+): Promise<WorkflowTransition[]> {
+  return apiFetch<WorkflowTransition[]>(
+    `/api/applications/${applicationId}/available-transitions`
+  );
+}
+
+// ── Post-Selection (Disbursements & Renewals) types & API ─────────────────────
+
+export type DisbursementStatus = "PENDING" | "DISBURSED" | "FAILED" | "ON_HOLD";
+
+export interface DisbursementRead {
+  id: string;
+  application_id: string;
+  amount: number;
+  disbursed_date?: string | null;
+  status: DisbursementStatus;
+  installment_number: number;
+  remarks?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RenewalStatus = "PENDING_REVIEW" | "APPROVED" | "REJECTED";
+
+export interface RenewalRead {
+  id: string;
+  application_id: string;
+  academic_year_or_cycle: string;
+  status: RenewalStatus;
+  due_date: string;
+  reviewed_date?: string | null;
+  reviewer_id?: string | null;
+  remarks?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PostSelectionSummary {
+  application_id: string;
+  disbursements: DisbursementRead[];
+  renewals: RenewalRead[];
+}
+
+export async function getPostSelectionSummary(
+  applicationId: string
+): Promise<PostSelectionSummary> {
+  return apiFetch<PostSelectionSummary>(
+    `/api/applications/${applicationId}/post-selection-summary`
+  );
+}
+
+export async function createDisbursement(
+  applicationId: string,
+  data: { amount: number; installment_number?: number; remarks?: string }
+): Promise<DisbursementRead> {
+  return apiFetch<DisbursementRead>(`/api/applications/${applicationId}/disbursements`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateDisbursement(
+  disbursementId: string,
+  data: { status: DisbursementStatus; remarks?: string; disbursed_date?: string }
+): Promise<DisbursementRead> {
+  return apiFetch<DisbursementRead>(`/api/disbursements/${disbursementId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createRenewal(
+  applicationId: string,
+  data: { academic_year_or_cycle: string; due_date: string; remarks?: string }
+): Promise<RenewalRead> {
+  return apiFetch<RenewalRead>(`/api/applications/${applicationId}/renewals`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRenewal(
+  renewalId: string,
+  data: { status: RenewalStatus; remarks?: string }
+): Promise<RenewalRead> {
+  return apiFetch<RenewalRead>(`/api/renewals/${renewalId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Stats API ────────────────────────────────────────────────────────────────
+
+export interface RecentActivityItem {
+  id: string;
+  action: string;
+  application_id?: string | null;
+  created_at: string;
+}
+
+export interface StatsOverview {
+  total_applications: number;
+  applications_by_state: Record<string, number>;
+  applications_by_scheme: Record<string, number>;
+  deficient_count: number;
+  documents_by_status: Record<string, number>;
+  pending_disbursements_count: number;
+  total_disbursed_amount: number;
+  pending_renewals_count: number;
+  recent_activity: RecentActivityItem[];
+}
+
+export async function getStatsOverview(): Promise<StatsOverview> {
+  return apiFetch<StatsOverview>("/api/stats/overview");
+}
+
+export async function getSchemeStats(schemeId: string): Promise<StatsOverview> {
+  return apiFetch<StatsOverview>(`/api/stats/schemes/${schemeId}`);
 }

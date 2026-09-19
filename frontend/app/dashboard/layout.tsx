@@ -46,6 +46,13 @@ const NAV_ITEMS = [
     exact: false,
   },
   {
+    label: "Selection Committee",
+    href: "/dashboard/selection",
+    icon: UserCheck,
+    exact: false,
+    roles: ["SUPER_ADMIN", "SELECTION_COMMITTEE"],
+  },
+  {
     label: "Audit Log",
     href: "/dashboard/audit",
     icon: History,
@@ -92,6 +99,8 @@ export default function DashboardLayout({
         return "bg-indigo-500/20 text-indigo-300 border-indigo-500/40";
       case "SCRUTINY_OFFICER":
         return "bg-emerald-500/20 text-emerald-300 border-emerald-500/40";
+      case "SELECTION_COMMITTEE":
+        return "bg-purple-500/20 text-purple-300 border-purple-500/40";
       default:
         return "bg-slate-500/20 text-slate-300 border-slate-500/40";
     }
@@ -145,7 +154,9 @@ export default function DashboardLayout({
           <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             Navigation
           </div>
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter(
+            (item) => !item.roles || (user && item.roles.includes(user.role))
+          ).map((item) => {
             const isActive = item.exact
               ? pathname === item.href
               : pathname === item.href || pathname.startsWith(`${item.href}/`);

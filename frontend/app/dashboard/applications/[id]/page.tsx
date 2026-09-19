@@ -30,6 +30,8 @@ import {
   ShieldCheck,
   History,
   FileText,
+  Award,
+  UserCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -160,17 +162,43 @@ export default function ApplicationDetailPage() {
           </Button>
         </Link>
 
-        {needsScrutiny && (
-          <Link href={`/dashboard/scrutiny/${app.id}`}>
-            <Button
-              id="open-scrutiny-btn"
-              className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-8 shadow-md shadow-amber-600/20"
-            >
-              <FileCheck2 className="w-3.5 h-3.5 mr-1.5" />
-              Open Document Scrutiny View
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {needsScrutiny && (
+            <Link href={`/dashboard/scrutiny/${app.id}`}>
+              <Button
+                id="open-scrutiny-btn"
+                className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-8 shadow-md shadow-amber-600/20"
+              >
+                <FileCheck2 className="w-3.5 h-3.5 mr-1.5" />
+                Open Document Scrutiny View
+              </Button>
+            </Link>
+          )}
+
+          {app.current_state === "selection" && (
+            <Link href={`/dashboard/selection/${app.id}`}>
+              <Button
+                id="open-selection-btn"
+                className="bg-purple-600 hover:bg-purple-500 text-white text-xs h-8 shadow-md shadow-purple-600/20"
+              >
+                <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                Open Selection Review
+              </Button>
+            </Link>
+          )}
+
+          {(app.current_state === "approved" || app.current_state === "visa_issued") && (
+            <Link href={`/dashboard/applications/${app.id}/post-selection`}>
+              <Button
+                id="open-post-selection-btn"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8 shadow-md shadow-emerald-600/20 font-semibold"
+              >
+                <Award className="w-3.5 h-3.5 mr-1.5" />
+                Post-Selection Management
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Header Banner */}

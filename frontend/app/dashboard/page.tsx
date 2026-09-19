@@ -4,38 +4,57 @@ import React from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
-  getSchemes,
+  getStatsOverview,
   getApplications,
   getAuditLogs,
-  type SchemeRead,
+  type StatsOverview,
   type ApplicationRead,
   type AuditLogListResponse,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
-  Layers,
   FileSpreadsheet,
-  FileCheck2,
+  AlertTriangle,
+  Banknote,
+  IndianRupee,
+  RefreshCw,
   History,
   ArrowUpRight,
   TrendingUp,
-  AlertTriangle,
   CheckCircle2,
   Clock,
-  Sparkles,
-  ExternalLink,
+  Layers,
+  FileCheck2,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+function formatINR(amount: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+const STATE_COLORS: Record<string, { bar: string; badge: string; label: string }> = {
+  submitted: { bar: "bg-sky-500", badge: "bg-sky-500/20 text-sky-300 border-sky-500/40", label: "Submitted" },
+  eligibility_check: { bar: "bg-blue-500", badge: "bg-blue-500/20 text-blue-300 border-blue-500/40", label: "Eligibility Check" },
+  document_scrutiny: { bar: "bg-amber-500", badge: "bg-amber-500/20 text-amber-300 border-amber-500/40", label: "Document Scrutiny" },
+  deficient: { bar: "bg-rose-500", badge: "bg-rose-500/20 text-rose-300 border-rose-500/40", label: "Deficient" },
+  selection: { bar: "bg-purple-500", badge: "bg-purple-500/20 text-purple-300 border-purple-500/40", label: "Selection Committee" },
+  approved: { bar: "bg-emerald-500", badge: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40", label: "Approved" },
+  rejected: { bar: "bg-slate-500", badge: "bg-slate-500/20 text-slate-300 border-slate-500/40", label: "Rejected" },
+};
+
 export default function DashboardOverviewPage() {
   const { user } = useAuth();
 
-  const { data: schemes, isLoading: schemesLoading } = useSWR<SchemeRead[]>(
-    "/api/schemes",
-    () => getSchemes()
+  const { data: stats, isLoading: statsLoading } = useSWR<StatsOverview>(
+    "/api/stats/overview",
+    () => getStatsOverview()
   );
 
   const { data: applications, isLoading: appsLoading } = useSWR<ApplicationRead[]>(
@@ -48,36 +67,15 @@ export default function DashboardOverviewPage() {
     () => getAuditLogs({ page: 1, page_size: 6 })
   );
 
-  // Derived metrics
-  const activeSchemesCount = schemes?.filter((s) => s.is_active).length ?? 0;
-  const totalSchemesCount = schemes?.length ?? 0;
-
-  const totalAppsCount = applications?.length ?? 0;
-  const scrutinyQueueCount =
-    applications?.filter(
-      (a) => a.current_state === "document_scrutiny" || a.current_state === "deficient"
-    ).length ?? 0;
-
   const getStateBadge = (state: string) => {
-    switch (state) {
-      case "submitted":
-        return <Badge className="bg-sky-500/20 text-sky-300 border-sky-500/40 text-[10px]">Submitted</Badge>;
-      case "eligibility_check":
-        return <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40 text-[10px]">Eligibility</Badge>;
-      case "document_scrutiny":
-        return <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">Scrutiny</Badge>;
-      case "deficient":
-        return <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-[10px]">Deficient</Badge>;
-      case "selection":
-        return <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">Selection</Badge>;
-      case "approved":
-        return <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">Approved</Badge>;
-      case "rejected":
-        return <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-[10px]">Rejected</Badge>;
-      default:
-        return <Badge variant="outline" className="text-[10px]">{state}</Badge>;
+    const config = STATE_COLORS[state];
+    if (config) {
+      return <Badge className={`${config.badge} text-[10px]`}>{config.label}</Badge>;
     }
+    return <Badge variant="outline" className="text-[10px]">{state}</Badge>;
   };
+
+  const totalApps = stats?.total_applications ?? 0;
 
   return (
     <div className="space-y-8">
@@ -86,104 +84,227 @@ export default function DashboardOverviewPage() {
         <div className="relative z-10 space-y-2">
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              Administrative Control Center
+              National Scholarship Directorate
             </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
             Welcome back, {user?.full_name || "Administrator"}
           </h1>
           <p className="text-xs md:text-sm text-slate-400 max-w-2xl">
-            Monitor state transition workflows, inspect OCR document verifications, manage national scholarship rules, and audit all officer interventions in real time.
+            Real-time pipeline monitoring, Selection Committee decisions, fund disbursement tracking, and renewal management across all SC/ST welfare schemes.
           </p>
         </div>
       </div>
 
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Schemes Card */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Total Schemes</CardTitle>
-            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-              <Layers className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {schemesLoading ? (
-              <Skeleton className="h-7 w-16 bg-slate-800" />
-            ) : (
-              <div className="text-2xl font-bold text-white tracking-tight">{totalSchemesCount}</div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <span className="text-emerald-400 font-medium">{activeSchemesCount} active</span>
-              <span>•</span>
-              <span>{totalSchemesCount - activeSchemesCount} inactive</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Applications Card */}
+      {/* 5 Summary Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Total Applications */}
         <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-medium text-slate-400">Total Applications</CardTitle>
-            <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
               <FileSpreadsheet className="w-4 h-4" />
             </div>
           </CardHeader>
           <CardContent>
-            {appsLoading ? (
+            {statsLoading ? (
               <Skeleton className="h-7 w-16 bg-slate-800" />
             ) : (
-              <div className="text-2xl font-bold text-white tracking-tight">{totalAppsCount}</div>
+              <div className="text-2xl font-bold text-white tracking-tight">{stats?.total_applications ?? 0}</div>
             )}
             <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <TrendingUp className="w-3 h-3 text-blue-400" />
+              <TrendingUp className="w-3 h-3 text-indigo-400" />
               <span>Across all schemes</span>
             </p>
           </CardContent>
         </Card>
 
-        {/* Scrutiny Queue Card */}
+        {/* Deficient Applications */}
         <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Scrutiny Queue</CardTitle>
-            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
-              <FileCheck2 className="w-4 h-4" />
+            <CardTitle className="text-xs font-medium text-slate-400">Deficient Applications</CardTitle>
+            <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400">
+              <AlertTriangle className="w-4 h-4" />
             </div>
           </CardHeader>
           <CardContent>
-            {appsLoading ? (
+            {statsLoading ? (
               <Skeleton className="h-7 w-16 bg-slate-800" />
             ) : (
-              <div className="text-2xl font-bold text-amber-400 tracking-tight">{scrutinyQueueCount}</div>
+              <div className="text-2xl font-bold text-rose-400 tracking-tight">{stats?.deficient_count ?? 0}</div>
             )}
             <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <Clock className="w-3 h-3 text-amber-400" />
-              <span>Requires officer review</span>
+              <Clock className="w-3 h-3 text-rose-400" />
+              <span>Pending candidate resubmission</span>
             </p>
           </CardContent>
         </Card>
 
-        {/* System Activity Card */}
+        {/* Pending Disbursements */}
         <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Audit Trail Events</CardTitle>
-            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-              <History className="w-4 h-4" />
+            <CardTitle className="text-xs font-medium text-slate-400">Pending Disbursements</CardTitle>
+            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+              <Banknote className="w-4 h-4" />
             </div>
           </CardHeader>
           <CardContent>
-            {auditLoading ? (
+            {statsLoading ? (
               <Skeleton className="h-7 w-16 bg-slate-800" />
             ) : (
-              <div className="text-2xl font-bold text-white tracking-tight">
-                {auditLogs?.total ?? 0}
+              <div className="text-2xl font-bold text-amber-400 tracking-tight">{stats?.pending_disbursements_count ?? 0}</div>
+            )}
+            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
+              <span>Ready for banking release</span>
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Disbursed */}
+        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-medium text-slate-400">Total Disbursed</CardTitle>
+            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
+              <IndianRupee className="w-4 h-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <Skeleton className="h-7 w-24 bg-slate-800" />
+            ) : (
+              <div className="text-2xl font-bold text-emerald-400 tracking-tight">
+                {formatINR(stats?.total_disbursed_amount ?? 0)}
               </div>
             )}
             <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3 h-3 text-purple-400" />
-              <span>Tamper-evident logs</span>
+              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+              <span>Released to candidates</span>
             </p>
+          </CardContent>
+        </Card>
+
+        {/* Pending Renewals */}
+        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-medium text-slate-400">Pending Renewals</CardTitle>
+            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            {statsLoading ? (
+              <Skeleton className="h-7 w-16 bg-slate-800" />
+            ) : (
+              <div className="text-2xl font-bold text-purple-400 tracking-tight">{stats?.pending_renewals_count ?? 0}</div>
+            )}
+            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
+              <span>Annual review cycles</span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Visual Breakdowns: Applications by State & Applications by Scheme */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* By Workflow State */}
+        <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-white flex items-center justify-between">
+              <span>Applications by Workflow State</span>
+              <span className="text-xs font-normal text-slate-400">{totalApps} total</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-400">
+              Distribution of applications across automated and human scrutiny stages
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {statsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-full bg-slate-800" />
+                <Skeleton className="h-6 w-full bg-slate-800" />
+                <Skeleton className="h-6 w-full bg-slate-800" />
+              </div>
+            ) : stats && Object.keys(stats.applications_by_state).length > 0 ? (
+              Object.entries(stats.applications_by_state).map(([state, count]) => {
+                const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
+                const stateCfg = STATE_COLORS[state] || {
+                  bar: "bg-slate-500",
+                  badge: "bg-slate-500/20 text-slate-300",
+                  label: state,
+                };
+                return (
+                  <div key={state} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-300">{stateCfg.label}</span>
+                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-slate-400 border-slate-700">
+                          {state}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">{count}</span>
+                        <span className="text-slate-500 text-[11px] w-9 text-right">({pct}%)</span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${stateCfg.bar} rounded-full transition-all duration-500`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-6 text-center text-xs text-slate-500">No application state data available</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* By Scheme */}
+        <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-white flex items-center justify-between">
+              <span>Applications by Welfare Scheme</span>
+              <span className="text-xs font-normal text-slate-400">{totalApps} total</span>
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-400">
+              Candidate volume categorized by national and state assistance schemes
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {statsLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-full bg-slate-800" />
+                <Skeleton className="h-6 w-full bg-slate-800" />
+                <Skeleton className="h-6 w-full bg-slate-800" />
+              </div>
+            ) : stats && Object.keys(stats.applications_by_scheme).length > 0 ? (
+              Object.entries(stats.applications_by_scheme).map(([schemeCode, count]) => {
+                const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
+                return (
+                  <div key={schemeCode} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-200 tracking-wide">{schemeCode}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">{count}</span>
+                        <span className="text-slate-500 text-[11px] w-9 text-right">({pct}%)</span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-sky-400 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-6 text-center text-xs text-slate-500">No scheme distribution data available</div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -301,3 +422,4 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
