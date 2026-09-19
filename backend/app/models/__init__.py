@@ -9,6 +9,8 @@ from app.models.scheme import Scheme
 from app.models.application import Application
 from app.models.document import Document, DocumentStatus
 from app.models.audit_log import AuditLog
+from app.models.disbursement import Disbursement, DisbursementStatus
+from app.models.renewal import Renewal, RenewalStatus
 
 __all__ = [
     "Base",
@@ -22,4 +24,9 @@ __all__ = [
     "Document",
     "DocumentStatus",
     "AuditLog",
+    "Disbursement",
+    "DisbursementStatus",
+    "Renewal",
+    "RenewalStatus",
 ]
+

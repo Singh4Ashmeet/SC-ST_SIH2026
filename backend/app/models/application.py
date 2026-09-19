@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from app.models.scheme import Scheme
     from app.models.document import Document
     from app.models.audit_log import AuditLog
+    from app.models.disbursement import Disbursement
+    from app.models.renewal import Renewal
 
 
 class Application(Base, BaseModelMixin):
@@ -68,3 +70,14 @@ class Application(Base, BaseModelMixin):
         back_populates="application",
         cascade="all, delete-orphan",
     )
+    disbursements: Mapped[List["Disbursement"]] = relationship(
+        "Disbursement",
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+    renewals: Mapped[List["Renewal"]] = relationship(
+        "Renewal",
+        back_populates="application",
+        cascade="all, delete-orphan",
+    )
+

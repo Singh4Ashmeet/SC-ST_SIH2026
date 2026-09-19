@@ -19,6 +19,16 @@ from app.schemas.audit_log import (
     AuditLogCreate,
     AuditLogRead,
 )
+from app.schemas.disbursement import (
+    DisbursementCreate,
+    DisbursementUpdate,
+    DisbursementRead,
+)
+from app.schemas.renewal import (
+    RenewalCreate,
+    RenewalUpdate,
+    RenewalRead,
+)
 from app.schemas.scheme_config import (
     SchemeConfig,
     SchemeConfigValidationError,
@@ -44,6 +54,12 @@ __all__ = [
     "AuditLogBase",
     "AuditLogCreate",
     "AuditLogRead",
+    "DisbursementCreate",
+    "DisbursementUpdate",
+    "DisbursementRead",
+    "RenewalCreate",
+    "RenewalUpdate",
+    "RenewalRead",
     "SchemeConfig",
     "SchemeConfigValidationError",
     "WorkflowState",
