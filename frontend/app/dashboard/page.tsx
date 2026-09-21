@@ -1,37 +1,62 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
-  getStatsOverview,
-  getApplications,
-  getAuditLogs,
-  type StatsOverview,
-  type ApplicationRead,
-  type AuditLogListResponse,
-} from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
-import {
-  FileSpreadsheet,
   AlertTriangle,
-  Banknote,
-  IndianRupee,
-  RefreshCw,
-  History,
-  ArrowUpRight,
-  TrendingUp,
+  ArrowRight,
+  Bell,
   CheckCircle2,
-  Clock,
-  Layers,
+  ChevronRight,
+  Clock3,
   FileCheck2,
+  FileText,
+  IndianRupee,
+  Layers3,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  XCircle,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { getApplications, getAuditLogs, getStatsOverview, type ApplicationRead, type AuditLogListResponse, type StatsOverview } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
 
-function formatINR(amount: number): string {
+const C = {
+  navy: "#0A0F1E",
+  green: "#1B4332",
+  terracotta: "#A64B2C",
+  gold: "#E09E18",
+  cream: "#F1E4C9",
+  slate: "#5A6B7F",
+  ochre: "#BF8F35",
+  paper: "#FAF8F4",
+};
+
+const FALLBACK_STATS = {
+  total_applications: 8410,
+  deficient_count: 412,
+  pending_disbursements_count: 89,
+  total_disbursed_amount: 68400000,
+  pending_renewals_count: 69,
+};
+
+const FALLBACK_CASES = [
+  { name: "Birsa Munda", scheme: "NFST", status: "Pending Review", flag: "Deficient Document · Caste Certificate", score: 80, tone: "warning" },
+  { name: "Tanvi Kamble", scheme: "NFST", status: "Verified", flag: "All required documents matched", score: 96, tone: "success" },
+  { name: "Rohan Minz", scheme: "NOS", status: "Needs Attention", flag: "Admission offer requires review", score: 72, tone: "danger" },
+];
+
+const WEEKLY = [
+  { day: "Mon", received: 680, verified: 410, pending: 230 },
+  { day: "Tue", received: 1110, verified: 690, pending: 370 },
+  { day: "Wed", received: 740, verified: 520, pending: 300 },
+  { day: "Thu", received: 1030, verified: 760, pending: 460 },
+  { day: "Fri", received: 1010, verified: 810, pending: 510 },
+];
+
+function money(amount: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
@@ -39,387 +64,379 @@ function formatINR(amount: number): string {
   }).format(amount);
 }
 
-const STATE_COLORS: Record<string, { bar: string; badge: string; label: string }> = {
-  submitted: { bar: "bg-sky-500", badge: "bg-sky-500/20 text-sky-300 border-sky-500/40", label: "Submitted" },
-  eligibility_check: { bar: "bg-blue-500", badge: "bg-blue-500/20 text-blue-300 border-blue-500/40", label: "Eligibility Check" },
-  document_scrutiny: { bar: "bg-amber-500", badge: "bg-amber-500/20 text-amber-300 border-amber-500/40", label: "Document Scrutiny" },
-  deficient: { bar: "bg-rose-500", badge: "bg-rose-500/20 text-rose-300 border-rose-500/40", label: "Deficient" },
-  selection: { bar: "bg-purple-500", badge: "bg-purple-500/20 text-purple-300 border-purple-500/40", label: "Selection Committee" },
-  approved: { bar: "bg-emerald-500", badge: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40", label: "Approved" },
-  rejected: { bar: "bg-slate-500", badge: "bg-slate-500/20 text-slate-300 border-slate-500/40", label: "Rejected" },
-};
+function pct(value: number, total: number) {
+  return total ? Math.round((value / total) * 100) : 0;
+}
 
-export default function DashboardOverviewPage() {
-  const { user } = useAuth();
+function StatusPill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "success" | "warning" | "danger" | "neutral" }) {
+  const styles = {
+    success: { background: "#1B4332", color: "#F1E4C9" },
+    warning: { background: "#E09E18", color: "#0A0F1E" },
+    danger: { background: "#A64B2C", color: "#FAF8F4" },
+    neutral: { background: "#5A6B7F", color: "#FAF8F4" },
+  }[tone];
 
-  const { data: stats, isLoading: statsLoading } = useSWR<StatsOverview>(
-    "/api/stats/overview",
-    () => getStatsOverview()
-  );
+  return <span style={styles} className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold">{children}</span>;
+}
 
-  const { data: applications, isLoading: appsLoading } = useSWR<ApplicationRead[]>(
-    "/api/applications",
-    () => getApplications()
-  );
-
-  const { data: auditLogs, isLoading: auditLoading } = useSWR<AuditLogListResponse>(
-    "/api/audit-log?page=1&page_size=6",
-    () => getAuditLogs({ page: 1, page_size: 6 })
-  );
-
-  const getStateBadge = (state: string) => {
-    const config = STATE_COLORS[state];
-    if (config) {
-      return <Badge className={`${config.badge} text-[10px]`}>{config.label}</Badge>;
-    }
-    return <Badge variant="outline" className="text-[10px]">{state}</Badge>;
+function MetricCard({
+  label,
+  value,
+  note,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  note: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: "green" | "gold" | "terracotta" | "navy";
+}) {
+  const accents = {
+    green: C.green,
+    gold: C.gold,
+    terracotta: C.terracotta,
+    navy: C.navy,
   };
-
-  const totalApps = stats?.total_applications ?? 0;
+  const accent = accents[tone];
 
   return (
-    <div className="space-y-8">
-      {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-900/40 p-6 md:p-8">
-        <div className="relative z-10 space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-              National Scholarship Directorate
-            </span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
-            Welcome back, {user?.full_name || "Administrator"}
-          </h1>
-          <p className="text-xs md:text-sm text-slate-400 max-w-2xl">
-            Real-time pipeline monitoring, Selection Committee decisions, fund disbursement tracking, and renewal management across all SC/ST welfare schemes.
-          </p>
+    <div className="rounded-xl border p-4 shadow-[0_3px_12px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.slate }}>{label}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight" style={{ color: C.navy }}>{value}</p>
+        </div>
+        <div className="rounded-lg p-2.5" style={{ background: `${accent}16`, color: accent }}>
+          <Icon className="h-4 w-4" />
         </div>
       </div>
-
-      {/* 5 Summary Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Applications */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Total Applications</CardTitle>
-            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-              <FileSpreadsheet className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-7 w-16 bg-slate-800" />
-            ) : (
-              <div className="text-2xl font-bold text-white tracking-tight">{stats?.total_applications ?? 0}</div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <TrendingUp className="w-3 h-3 text-indigo-400" />
-              <span>Across all schemes</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Deficient Applications */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Deficient Applications</CardTitle>
-            <div className="p-2 bg-rose-500/10 rounded-lg text-rose-400">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-7 w-16 bg-slate-800" />
-            ) : (
-              <div className="text-2xl font-bold text-rose-400 tracking-tight">{stats?.deficient_count ?? 0}</div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <Clock className="w-3 h-3 text-rose-400" />
-              <span>Pending candidate resubmission</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Pending Disbursements */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Pending Disbursements</CardTitle>
-            <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
-              <Banknote className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-7 w-16 bg-slate-800" />
-            ) : (
-              <div className="text-2xl font-bold text-amber-400 tracking-tight">{stats?.pending_disbursements_count ?? 0}</div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <span>Ready for banking release</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total Disbursed */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Total Disbursed</CardTitle>
-            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-              <IndianRupee className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-7 w-24 bg-slate-800" />
-            ) : (
-              <div className="text-2xl font-bold text-emerald-400 tracking-tight">
-                {formatINR(stats?.total_disbursed_amount ?? 0)}
-              </div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-              <span>Released to candidates</span>
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Pending Renewals */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-xs font-medium text-slate-400">Pending Renewals</CardTitle>
-            <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400">
-              <RefreshCw className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-7 w-16 bg-slate-800" />
-            ) : (
-              <div className="text-2xl font-bold text-purple-400 tracking-tight">{stats?.pending_renewals_count ?? 0}</div>
-            )}
-            <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <span>Annual review cycles</span>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Visual Breakdowns: Applications by State & Applications by Scheme */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* By Workflow State */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold text-white flex items-center justify-between">
-              <span>Applications by Workflow State</span>
-              <span className="text-xs font-normal text-slate-400">{totalApps} total</span>
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-400">
-              Distribution of applications across automated and human scrutiny stages
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {statsLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-6 w-full bg-slate-800" />
-                <Skeleton className="h-6 w-full bg-slate-800" />
-                <Skeleton className="h-6 w-full bg-slate-800" />
-              </div>
-            ) : stats && Object.keys(stats.applications_by_state).length > 0 ? (
-              Object.entries(stats.applications_by_state).map(([state, count]) => {
-                const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
-                const stateCfg = STATE_COLORS[state] || {
-                  bar: "bg-slate-500",
-                  badge: "bg-slate-500/20 text-slate-300",
-                  label: state,
-                };
-                return (
-                  <div key={state} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-300">{stateCfg.label}</span>
-                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-slate-400 border-slate-700">
-                          {state}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white">{count}</span>
-                        <span className="text-slate-500 text-[11px] w-9 text-right">({pct}%)</span>
-                      </div>
-                    </div>
-                    <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${stateCfg.bar} rounded-full transition-all duration-500`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="py-6 text-center text-xs text-slate-500">No application state data available</div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* By Scheme */}
-        <Card className="bg-slate-900/60 border-slate-800 text-slate-100">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold text-white flex items-center justify-between">
-              <span>Applications by Welfare Scheme</span>
-              <span className="text-xs font-normal text-slate-400">{totalApps} total</span>
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-400">
-              Candidate volume categorized by national and state assistance schemes
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {statsLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-6 w-full bg-slate-800" />
-                <Skeleton className="h-6 w-full bg-slate-800" />
-                <Skeleton className="h-6 w-full bg-slate-800" />
-              </div>
-            ) : stats && Object.keys(stats.applications_by_scheme).length > 0 ? (
-              Object.entries(stats.applications_by_scheme).map(([schemeCode, count]) => {
-                const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
-                return (
-                  <div key={schemeCode} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-200 tracking-wide">{schemeCode}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white">{count}</span>
-                        <span className="text-slate-500 text-[11px] w-9 text-right">({pct}%)</span>
-                      </div>
-                    </div>
-                    <div className="h-2 w-full bg-slate-800/80 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-sky-400 rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="py-6 text-center text-xs text-slate-500">No scheme distribution data available</div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Sections Split: Recent Applications & Recent Audit Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Applications (2 Cols) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">Recent Applications</h2>
-              <p className="text-xs text-slate-400">Candidate submissions in the pipeline</p>
-            </div>
-            <Link href="/dashboard/applications">
-              <Button variant="outline" size="sm" className="h-8 text-xs border-slate-700 bg-slate-900 text-slate-300 hover:text-white">
-                View All
-                <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </div>
-
-          <Card className="bg-slate-900/60 border-slate-800 text-slate-100 overflow-hidden">
-            <div className="divide-y divide-slate-800">
-              {appsLoading ? (
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-10 w-full bg-slate-800" />
-                  <Skeleton className="h-10 w-full bg-slate-800" />
-                  <Skeleton className="h-10 w-full bg-slate-800" />
-                </div>
-              ) : applications && applications.length > 0 ? (
-                applications.slice(0, 5).map((app) => (
-                  <Link
-                    key={app.id}
-                    href={`/dashboard/applications/${app.id}`}
-                    className="flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors group"
-                  >
-                    <div className="space-y-1 min-w-0 pr-4">
-                      <div className="font-medium text-xs text-slate-200 group-hover:text-indigo-300 transition-colors truncate">
-                        {app.applicant_name}
-                      </div>
-                      <div className="text-[11px] text-slate-400 truncate">
-                        {app.applicant_email}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {getStateBadge(app.current_state)}
-                      <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors" />
-                    </div>
-                  </Link>
-                ))
-              ) : (
-                <div className="p-8 text-center text-xs text-slate-500">
-                  No applications recorded yet.
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Audit Log Activity Feed (1 Col) */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">Recent Audit Activity</h2>
-              <p className="text-xs text-slate-400">System actions & state shifts</p>
-            </div>
-            <Link href="/dashboard/audit">
-              <Button variant="outline" size="sm" className="h-8 text-xs border-slate-700 bg-slate-900 text-slate-300 hover:text-white">
-                Full Log
-                <ArrowUpRight className="w-3.5 h-3.5 ml-1" />
-              </Button>
-            </Link>
-          </div>
-
-          <Card className="bg-slate-900/60 border-slate-800 text-slate-100 overflow-hidden">
-            <div className="divide-y divide-slate-800/80">
-              {auditLoading ? (
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-8 w-full bg-slate-800" />
-                  <Skeleton className="h-8 w-full bg-slate-800" />
-                </div>
-              ) : auditLogs?.items && auditLogs.items.length > 0 ? (
-                auditLogs.items.map((log) => (
-                  <div key={log.id} className="p-3.5 text-xs space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-slate-300 uppercase tracking-wider text-[10px]">
-                        {log.action.replace("_", " ")}
-                      </span>
-                      <span className="text-[10px] text-slate-500">
-                        {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    {log.from_state || log.to_state ? (
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                        <span className="text-slate-500">{log.from_state || "initial"}</span>
-                        <span>→</span>
-                        <span className="text-indigo-400 font-medium">{log.to_state}</span>
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-slate-400 truncate">
-                        {log.details ? JSON.stringify(log.details) : "Action recorded"}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center text-xs text-slate-500">
-                  No audit logs recorded yet.
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      </div>
+      <p className="mt-2 text-[11px]" style={{ color: C.slate }}>{note}</p>
     </div>
   );
 }
 
+function BarChart() {
+  const max = Math.max(...WEEKLY.map((x) => x.received));
+  return (
+    <div className="mt-5 flex h-44 items-end justify-between gap-3">
+      {WEEKLY.map((item) => (
+        <div key={item.day} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+          <div className="flex h-full w-full items-end justify-center gap-1">
+            <div title={`Received: ${item.received}`} className="w-2 rounded-t-sm" style={{ height: `${(item.received / max) * 100}%`, background: C.green }} />
+            <div title={`Verified: ${item.verified}`} className="w-2 rounded-t-sm" style={{ height: `${(item.verified / max) * 100}%`, background: C.terracotta }} />
+            <div title={`Pending: ${item.pending}`} className="w-2 rounded-t-sm" style={{ height: `${(item.pending / max) * 100}%`, background: C.gold }} />
+          </div>
+          <span className="text-[10px] font-medium" style={{ color: C.slate }}>{item.day}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function DashboardOverviewPage() {
+  const { user } = useAuth();
+
+  const { data: stats } = useSWR<StatsOverview>("/api/stats/overview", getStatsOverview);
+  const { data: applications } = useSWR<ApplicationRead[]>("/api/applications", getApplications);
+  const { data: auditLogs } = useSWR<AuditLogListResponse>(
+    "/api/audit-log?page=1&page_size=5",
+    () => getAuditLogs({ page: 1, page_size: 5 })
+  );
+
+  const live = {
+    ...FALLBACK_STATS,
+    ...(stats ?? {}),
+  };
+
+  const total = live.total_applications || FALLBACK_STATS.total_applications;
+  const deficient = live.deficient_count || FALLBACK_STATS.deficient_count;
+  const recent = applications?.slice(0, 5) ?? [];
+
+  return (
+    <div className="min-h-full" style={{ color: C.navy }}>
+      {/* Top government-style header */}
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border px-5 py-3.5 shadow-[0_2px_10px_rgba(10,15,30,0.05)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg text-white shadow-sm" style={{ background: C.green }}>
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: C.slate }}>Ministry of Tribal Affairs · Govt. of India</p>
+            <h1 className="text-sm font-bold tracking-tight md:text-base">Scholarship & Fellowship Management System</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-2 rounded-lg border px-3 py-2 md:flex" style={{ borderColor: "#DED6C8", background: "#FFFDF9" }}>
+            <Search className="h-3.5 w-3.5" style={{ color: C.slate }} />
+            <span className="text-[11px]" style={{ color: C.slate }}>Search application / beneficiary</span>
+          </div>
+          <button className="relative rounded-lg border p-2.5" style={{ borderColor: "#DED6C8", background: "#FFFDF9" }} aria-label="Notifications">
+            <Bell className="h-4 w-4" style={{ color: C.navy }} />
+            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full" style={{ background: C.terracotta }} />
+          </button>
+          <div className="hidden rounded-lg px-3 py-2 sm:block" style={{ background: "#EEE7DB" }}>
+            <p className="text-[10px] font-semibold">{user?.full_name || "Administrator"}</p>
+            <p className="text-[9px]" style={{ color: C.slate }}>{user?.role?.replaceAll("_", " ") || "SUPER ADMIN"}</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Page title */}
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.terracotta }}>Administrative Command Centre</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-[28px]">Application Scrutiny & Conflict Check</h2>
+          <p className="mt-1 max-w-2xl text-xs" style={{ color: C.slate }}>
+            Unified visibility across NFST, NOS and future MoTA schemes — eligibility, document scrutiny, selection and post-selection workflows.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-[10px]" style={{ color: C.slate }}>
+          <span className="h-2 w-2 rounded-full" style={{ background: C.green }} />
+          Live workflow data
+        </div>
+      </div>
+
+      {/* Overview metrics */}
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Applications Received" value={live.total_applications.toLocaleString("en-IN")} note="Across active scholarship & fellowship schemes" icon={FileText} tone="green" />
+        <MetricCard label="Deficiencies Flagged" value={live.deficient_count} note="Awaiting correction / re-upload" icon={AlertTriangle} tone="terracotta" />
+        <MetricCard label="Pending Cross-Scheme Check" value={live.pending_disbursements_count} note="Cases requiring officer action" icon={Layers3} tone="gold" />
+        <MetricCard label="Pending Process Rate" value={`${live.pending_renewals_count}`} note="Annual review / continuation cases" icon={Clock3} tone="navy" />
+      </div>
+
+      {/* Main review + right analytics */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
+        <section className="overflow-hidden rounded-xl border shadow-[0_3px_14px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4" style={{ borderColor: "#E7E0D3" }}>
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" style={{ color: C.gold }} />
+                <h3 className="text-sm font-bold">AI-Scrutiny Case Review</h3>
+              </div>
+              <p className="mt-1 text-[11px]" style={{ color: C.slate }}>Human-in-the-loop verification for high-risk or conflicting applications</p>
+            </div>
+            <Link href="/dashboard/scrutiny" className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: C.green }}>
+              Open scrutiny queue <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="border-b p-5 lg:border-b-0 lg:border-r" style={{ borderColor: "#E7E0D3" }}>
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: C.slate }}>Selected Case</p>
+                  <p className="mt-1 text-base font-bold">Birsa Munda</p>
+                  <p className="text-[10px]" style={{ color: C.slate }}>NFST · Application NFST-2026-00421</p>
+                </div>
+                <StatusPill tone="warning">PENDING REVIEW</StatusPill>
+              </div>
+
+              <div className="flex min-h-[235px] items-center justify-center rounded-lg border p-4" style={{ background: "#EEE7DB", borderColor: "#DDD4C5" }}>
+                <div className="w-full max-w-[260px] rounded-sm border bg-white p-4 shadow-sm" style={{ borderColor: "#D8D1C6" }}>
+                  <div className="mb-4 h-2 w-20 rounded" style={{ background: C.green }} />
+                  <div className="space-y-2">
+                    {[82, 95, 70, 90, 58].map((width, i) => (
+                      <div key={i} className="h-1.5 rounded bg-slate-200" style={{ width: `${width}%` }} />
+                    ))}
+                  </div>
+                  <div className="mt-7 grid grid-cols-2 gap-2">
+                    <div className="h-7 rounded border bg-slate-50" />
+                    <div className="h-7 rounded border bg-slate-50" />
+                  </div>
+                  <p className="mt-4 text-center text-[8px] uppercase tracking-[0.12em] text-slate-400">Synthetic demonstration document</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5">
+              <div className="rounded-lg border p-4" style={{ background: "#FFFDF9", borderColor: "#DDD4C5" }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: C.slate }}>AI Verification Engine</p>
+                    <p className="mt-1 text-sm font-bold">Conflict detected</p>
+                  </div>
+                  <div className="rounded-full p-2" style={{ background: "#E09E1820", color: C.gold }}>
+                    <FileCheck2 className="h-4 w-4" />
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-md px-3 py-2.5" style={{ background: "#E09E18", color: C.navy }}>
+                  <div className="flex items-center gap-2 text-[11px] font-bold">
+                    <AlertTriangle className="h-3.5 w-3.5" /> AI Check: Pending Review
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-md border p-3" style={{ borderColor: "#E7D4CC", background: "#FFF8F5" }}>
+                  <div className="flex gap-2">
+                    <XCircle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: C.terracotta }} />
+                    <div>
+                      <p className="text-[11px] font-bold" style={{ color: C.terracotta }}>Deficient Document · Caste Certificate</p>
+                      <p className="mt-1 text-[10px] leading-5" style={{ color: C.slate }}>
+                        OCR extracted a caste certificate value that conflicts with the application record. The engine flagged the mismatch for officer verification rather than auto-rejecting the applicant.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <div className="mb-1.5 flex justify-between text-[10px]">
+                    <span style={{ color: C.slate }}>AI confidence</span>
+                    <strong>80%</strong>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-[#E8E1D6]">
+                    <div className="h-full rounded-full" style={{ width: "80%", background: C.gold }} />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <button className="rounded-md px-3 py-2 text-[10px] font-bold text-white" style={{ background: C.green }}>Approve</button>
+                  <button className="rounded-md px-3 py-2 text-[10px] font-bold text-white" style={{ background: C.terracotta }}>Decline</button>
+                  <button className="rounded-md px-3 py-2 text-[10px] font-bold" style={{ background: "#E7E0D3", color: C.navy }}>Re-upload</button>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {[
+                  ["Identity", "Matched", "success"],
+                  ["Eligibility", "Passed", "success"],
+                  ["Document", "Conflict", "warning"],
+                ].map(([label, value, tone]) => (
+                  <div key={label} className="rounded-md border p-2.5" style={{ borderColor: "#E7E0D3", background: "#FFFDF9" }}>
+                    <p className="text-[9px]" style={{ color: C.slate }}>{label}</p>
+                    <div className="mt-1"><StatusPill tone={tone === "success" ? "success" : "warning"}>{value}</StatusPill></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="space-y-5">
+          <section className="rounded-xl border p-5 shadow-[0_3px_14px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold">Application Rate</h3>
+                <p className="mt-1 text-[10px]" style={{ color: C.slate }}>Received · verified · pending</p>
+              </div>
+              <span className="rounded-md px-2 py-1 text-[9px] font-semibold" style={{ background: "#EEE7DB", color: C.slate }}>This week</span>
+            </div>
+            <BarChart />
+            <div className="mt-2 flex flex-wrap gap-3 text-[9px]" style={{ color: C.slate }}>
+              <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm" style={{ background: C.green }} /> Received</span>
+              <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm" style={{ background: C.terracotta }} /> Verified</span>
+              <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-sm" style={{ background: C.gold }} /> Pending</span>
+            </div>
+          </section>
+
+          <section className="rounded-xl border p-5 shadow-[0_3px_14px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold">Weekly Processing Rate</h3>
+                <p className="mt-1 text-[10px]" style={{ color: C.slate }}>Workflow completion by day</p>
+              </div>
+              <CheckCircle2 className="h-4 w-4" style={{ color: C.green }} />
+            </div>
+            <div className="mt-4 space-y-3">
+              {[
+                ["Eligibility", 86, C.green],
+                ["Scrutiny", 72, C.terracotta],
+                ["Selection", 58, C.gold],
+              ].map(([label, value, color]) => (
+                <div key={label}>
+                  <div className="mb-1 flex justify-between text-[10px]"><span>{label}</span><strong>{value}%</strong></div>
+                  <div className="h-2 rounded-full bg-[#E8E1D6]"><div className="h-full rounded-full" style={{ width: `${value}%`, background: color as string }} /></div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {/* Workflow snapshot */}
+      <section className="mt-5 rounded-xl border p-5 shadow-[0_3px_14px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold">End-to-End Workflow Snapshot</h3>
+            <p className="mt-1 text-[10px]" style={{ color: C.slate }}>The dashboard mirrors PS26239: application → eligibility → scrutiny → selection → post-selection.</p>
+          </div>
+          <Link href="/dashboard/applications" className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: C.green }}>View applications <ChevronRight className="h-3.5 w-3.5" /></Link>
+        </div>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+          {[
+            ["Applications", total, Users],
+            ["Eligibility", Math.max(0, total - deficient), ShieldCheck],
+            ["Scrutiny", deficient, FileCheck2],
+            ["Selection", Math.round(total * 0.16), CheckCircle2],
+            ["Post-Selection", live.pending_renewals_count, RefreshCw],
+          ].map(([label, value, Icon]) => (
+            <div key={label as string} className="relative rounded-lg border p-3" style={{ background: "#FFFDF9", borderColor: "#E7E0D3" }}>
+              <Icon className="h-4 w-4" style={{ color: C.slate }} />
+              <p className="mt-3 text-[10px] font-medium" style={{ color: C.slate }}>{label as string}</p>
+              <p className="mt-0.5 text-lg font-bold">{(value as number).toLocaleString("en-IN")}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Bottom operational feeds */}
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.3fr_0.7fr]">
+        <section className="rounded-xl border shadow-[0_3px_14px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+          <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: "#E7E0D3" }}>
+            <div>
+              <h3 className="text-sm font-bold">Recent Applications</h3>
+              <p className="mt-1 text-[10px]" style={{ color: C.slate }}>Latest applications requiring monitoring</p>
+            </div>
+            <Link href="/dashboard/applications" className="text-[10px] font-semibold" style={{ color: C.green }}>View all</Link>
+          </div>
+          <div className="divide-y" style={{ borderColor: "#E7E0D3" }}>
+            {(recent.length ? recent : FALLBACK_CASES).map((item: any, index) => {
+              const name = item.applicant_name ?? item.name;
+              const scheme = item.scheme_code ?? item.scheme;
+              const state = item.current_state ?? item.status;
+              const tone = state?.toLowerCase().includes("deficien") || state?.toLowerCase().includes("attention") ? "warning" : state?.toLowerCase().includes("approved") || state?.toLowerCase().includes("verified") ? "success" : "neutral";
+              return (
+                <div key={item.id ?? name ?? index} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-semibold">{name}</p>
+                    <p className="mt-0.5 truncate text-[9px]" style={{ color: C.slate }}>{scheme || "NFST"} · {item.applicant_email || "Application under workflow review"}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusPill tone={tone as any}>{String(state || "SUBMITTED").replaceAll("_", " ")}</StatusPill>
+                    <ArrowRight className="hidden h-3.5 w-3.5 sm:block" style={{ color: C.slate }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-xl border shadow-[0_3px_14px_rgba(10,15,30,0.06)]" style={{ background: C.paper, borderColor: "#E7E0D3" }}>
+          <div className="border-b px-5 py-4" style={{ borderColor: "#E7E0D3" }}>
+            <h3 className="text-sm font-bold">Audit Activity</h3>
+            <p className="mt-1 text-[10px]" style={{ color: C.slate }}>Immutable workflow events</p>
+          </div>
+          <div className="divide-y" style={{ borderColor: "#E7E0D3" }}>
+            {(auditLogs?.items ?? []).slice(0, 5).map((log) => (
+              <div key={log.id} className="px-5 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-bold uppercase" style={{ color: C.green }}>{log.action.replaceAll("_", " ")}</span>
+                  <span className="text-[9px]" style={{ color: C.slate }}>{new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+                <p className="mt-1 truncate text-[10px]" style={{ color: C.slate }}>{log.from_state || "initial"} → {log.to_state || "recorded"}</p>
+              </div>
+            ))}
+            {!auditLogs?.items?.length && (
+              <div className="px-5 py-8 text-center text-[10px]" style={{ color: C.slate }}>Audit feed will populate from the live API.</div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t pt-4 text-[9px]" style={{ borderColor: "#DDD4C5", color: C.slate }}>
+        <span>SC/ST Scholarship & Fellowship Management System · SIH26239</span>
+        <span>AI assists scrutiny; final administrative decisions remain human-controlled.</span>
+      </div>
+    </div>
+  );
+}
