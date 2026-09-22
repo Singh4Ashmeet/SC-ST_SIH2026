@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import useSWR from "swr";
 import {
   getApplications,
   getSchemes,
@@ -10,248 +9,202 @@ import {
   type SchemeRead,
 } from "@/lib/api";
 import {
-  FileSpreadsheet,
+  FileCheck2,
   Search,
   Filter,
-  ArrowUpRight,
-  User,
-  Layers,
-  Calendar,
-  Sparkles,
+  ArrowRight,
+  ChevronDown,
+  RefreshCw,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
-const WORKFLOW_STATES = [
-  { value: "ALL", label: "All Workflow States" },
-  { value: "submitted", label: "Submitted" },
-  { value: "eligibility_check", label: "Eligibility Check" },
-  { value: "document_scrutiny", label: "Document Scrutiny" },
-  { value: "deficient", label: "Deficient" },
-  { value: "selection", label: "Selection Committee" },
-  { value: "approved", label: "Approved" },
-  { value: "rejected", label: "Rejected" },
-];
+function StatusBadge({ status }: { status: string }) {
+  const s = status.toLowerCase();
+  let cls = "bg-blue-50 text-blue-700 border-blue-200";
+  let label = status.replace(/_/g, " ");
+
+  if (s.includes("verified") || s.includes("approved") || s === "selected") {
+    cls = "bg-emerald-50 text-emerald-700 border-emerald-200";
+  } else if (s.includes("deficien") || s === "deficient") {
+    cls = "bg-rose-50 text-rose-700 border-rose-200";
+  } else if (s.includes("scrutiny")) {
+    cls = "bg-amber-50 text-amber-700 border-amber-200";
+  } else if (s === "rejected" || s === "ineligible") {
+    cls = "bg-rose-50 text-rose-700 border-rose-200";
+  }
+
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border capitalize ${cls}`}>
+      {label}
+    </span>
+  );
+}
 
 export default function ApplicationsPage() {
-  const [selectedScheme, setSelectedScheme] = useState<string>("ALL");
-  const [selectedState, setSelectedState] = useState<string>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [applications, setApplications] = useState<ApplicationRead[]>([]);
+  const [schemes, setSchemes] = useState<SchemeRead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [filterScheme, setFilterScheme] = useState("");
+  const [filterState, setFilterState] = useState("");
 
-  const { data: schemes } = useSWR<SchemeRead[]>("/api/schemes", () => getSchemes());
-
-  const queryParams = {
-    ...(selectedScheme !== "ALL" ? { scheme_id: selectedScheme } : {}),
-    ...(selectedState !== "ALL" ? { current_state: selectedState } : {}),
-  };
-
-  const swrKey = `/api/applications?${new URLSearchParams(queryParams as Record<string, string>).toString()}`;
-
-  const { data: applications, isLoading } = useSWR<ApplicationRead[]>(
-    swrKey,
-    () => getApplications(queryParams)
-  );
-
-  // Map scheme ID to scheme code
-  const schemeCodeMap = React.useMemo(() => {
-    const map = new Map<string, string>();
-    schemes?.forEach((s) => map.set(s.id, s.code));
-    return map;
-  }, [schemes]);
-
-  // Client-side text filter by applicant name or email
-  const filteredApps = React.useMemo(() => {
-    if (!applications) return [];
-    if (!searchQuery.trim()) return applications;
-    const q = searchQuery.toLowerCase();
-    return applications.filter(
-      (app) =>
-        app.applicant_name.toLowerCase().includes(q) ||
-        app.applicant_email.toLowerCase().includes(q)
-    );
-  }, [applications, searchQuery]);
-
-  const getStateBadge = (state: string) => {
-    switch (state) {
-      case "submitted":
-        return <Badge className="bg-sky-500/20 text-sky-300 border-sky-500/40 text-[10px]">Submitted</Badge>;
-      case "eligibility_check":
-        return <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/40 text-[10px]">Eligibility Check</Badge>;
-      case "document_scrutiny":
-        return <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px]">Document Scrutiny</Badge>;
-      case "deficient":
-        return <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-[10px]">Deficient</Badge>;
-      case "selection":
-        return <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">Selection Review</Badge>;
-      case "approved":
-        return <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">Approved</Badge>;
-      case "rejected":
-        return <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-[10px]">Rejected</Badge>;
-      default:
-        return <Badge variant="outline" className="text-[10px]">{state}</Badge>;
+  useEffect(() => {
+    async function load() {
+      try {
+        const [apps, sch] = await Promise.all([
+          getApplications({ page_size: 50 }),
+          getSchemes(),
+        ]);
+        setApplications(apps);
+        setSchemes(sch);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
     }
-  };
+    load();
+  }, []);
+
+  const filtered = applications.filter((app) => {
+    if (filterScheme && app.scheme_id !== filterScheme) return false;
+    if (filterState && app.current_state !== filterState) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        app.applicant_name.toLowerCase().includes(q) ||
+        app.applicant_email.toLowerCase().includes(q) ||
+        app.id.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const uniqueStates = [...new Set(applications.map((a) => a.current_state))];
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Scholarship Applications</h1>
-          <Badge variant="outline" className="text-xs bg-slate-900 border-slate-700 text-slate-300">
-            {filteredApps.length} results
-          </Badge>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <FileCheck2 className="w-5 h-5 text-[#de5c36]" />
+            Application Verification
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Review and verify scholarship &amp; fellowship applications
+          </p>
         </div>
-        <p className="text-xs text-slate-400 mt-1">
-          Review candidate records, inspect automated verification logs, and track workflow progressions
-        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5 text-gray-600"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Filter Controls Bar */}
-      <Card className="bg-slate-900/60 border-slate-800 text-slate-100 p-4 backdrop-blur-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Search Query */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <Input
-              id="applicant-search-input"
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 bg-slate-950/70 border-slate-800 text-xs text-slate-200 h-9"
+      {/* Filters */}
+      <div className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#de5c36] focus:bg-white transition"
+              placeholder="Search by name, email, or application ID..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
-          {/* Scheme Filter Dropdown */}
-          <div>
-            <Select value={selectedScheme} onValueChange={(val) => setSelectedScheme(val || "ALL")}>
-              <SelectTrigger id="scheme-filter-select" className="bg-slate-950/70 border-slate-800 text-xs text-slate-200 h-9 w-full">
-                <SelectValue placeholder="All Schemes" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800 text-slate-200 text-xs">
-                <SelectItem value="ALL">All Schemes</SelectItem>
-                {schemes?.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.code} — {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="relative">
+            <Filter className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <select
+              className="pl-8 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-gray-700 appearance-none focus:outline-none focus:ring-1 focus:ring-[#de5c36]"
+              value={filterScheme}
+              onChange={(e) => setFilterScheme(e.target.value)}
+            >
+              <option value="">All Schemes</option>
+              {schemes.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
-
-          {/* Workflow State Filter Dropdown */}
-          <div>
-            <Select value={selectedState} onValueChange={(val) => setSelectedState(val || "ALL")}>
-              <SelectTrigger id="state-filter-select" className="bg-slate-950/70 border-slate-800 text-xs text-slate-200 h-9 w-full">
-                <SelectValue placeholder="All Workflow States" />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-900 border-slate-800 text-slate-200 text-xs">
-                {WORKFLOW_STATES.map((st) => (
-                  <SelectItem key={st.value} value={st.value}>
-                    {st.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="relative">
+            <select
+              className="pl-3 pr-8 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg text-gray-700 appearance-none focus:outline-none focus:ring-1 focus:ring-[#de5c36]"
+              value={filterState}
+              onChange={(e) => setFilterState(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              {uniqueStates.map((st) => (
+                <option key={st} value={st}>{st.replace(/_/g, " ")}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
         </div>
-      </Card>
+      </div>
 
-      {/* Applications Data Table */}
-      <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm overflow-hidden">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-950/40 border-b border-slate-800">
-              <TableRow className="border-slate-800 hover:bg-transparent">
-                <TableHead className="text-slate-400 text-xs font-semibold">Applicant</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Scheme</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Current State</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Application Date</TableHead>
-                <TableHead className="text-right text-slate-400 text-xs font-semibold">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-800/80">
-              {isLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <TableRow key={i} className="border-slate-800">
-                    <TableCell><Skeleton className="h-5 w-36 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24 bg-slate-800" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-7 w-16 ml-auto bg-slate-800" /></TableCell>
-                  </TableRow>
-                ))
-              ) : filteredApps.length > 0 ? (
-                filteredApps.map((app) => (
-                  <TableRow
+      {/* Applications Table */}
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="w-6 h-6 rounded-full border-2 border-[#de5c36] border-t-transparent animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-48 text-sm text-gray-400">
+            No applications found
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/50">
+                  <th className="px-5 py-3">Application ID</th>
+                  <th className="px-5 py-3">Applicant Name</th>
+                  <th className="px-5 py-3">Email</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Submitted</th>
+                  <th className="px-5 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((app) => (
+                  <tr
                     key={app.id}
-                    className="border-slate-800 hover:bg-slate-800/40 cursor-pointer transition-colors group"
-                    onClick={() => (window.location.href = `/dashboard/applications/${app.id}`)}
+                    className="hover:bg-gray-50/70 transition"
                   >
-                    <TableCell>
-                      <div className="font-medium text-xs text-slate-200 group-hover:text-white transition-colors">
-                        {app.applicant_name}
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        {app.applicant_email}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-mono text-xs font-semibold text-indigo-400 bg-indigo-950/50 px-2 py-0.5 rounded border border-indigo-900/40">
-                        {schemeCodeMap.get(app.scheme_id) || "SCHEME"}
-                      </span>
-                    </TableCell>
-                    <TableCell>{getStateBadge(app.current_state)}</TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {new Date(app.created_at).toLocaleDateString(undefined, {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Link href={`/dashboard/applications/${app.id}`}>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs text-slate-300 hover:text-white group-hover:bg-slate-800"
-                        >
-                          View
-                          <ArrowUpRight className="w-3.5 h-3.5 ml-1 text-slate-500 group-hover:text-slate-200" />
-                        </Button>
+                    <td className="px-5 py-3 font-medium text-gray-800 text-[11px]">
+                      {app.id.slice(0, 14).toUpperCase()}
+                    </td>
+                    <td className="px-5 py-3 text-gray-700 font-medium">
+                      {app.applicant_name}
+                    </td>
+                    <td className="px-5 py-3 text-gray-500 text-[11px]">
+                      {app.applicant_email}
+                    </td>
+                    <td className="px-5 py-3">
+                      <StatusBadge status={app.current_state} />
+                    </td>
+                    <td className="px-5 py-3 text-gray-400 text-[11px]">
+                      {new Date(app.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <Link
+                        href={`/dashboard/applications/${app.id}`}
+                        className="inline-flex items-center gap-1 px-3 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200 transition"
+                      >
+                        View <ArrowRight className="w-3 h-3" />
                       </Link>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-xs text-slate-500">
-                    No applications matching the selected criteria.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

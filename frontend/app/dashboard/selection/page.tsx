@@ -1,252 +1,108 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import {
-  getApplications,
-  getSchemes,
-  type ApplicationRead,
-  type SchemeRead,
-} from "@/lib/api";
+import { getApplications, getSchemes, type ApplicationRead, type SchemeRead } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import {
-  UserCheck,
-  Search,
-  ArrowRight,
-  ShieldAlert,
-  Clock,
-  Layers,
-  Sparkles,
-  CheckCircle2,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { UserCheck, Search, ArrowRight, ShieldAlert } from "lucide-react";
 
 export default function SelectionCommitteeQueuePage() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-
-  const isAuthorized =
-    user?.role === "SUPER_ADMIN" || user?.role === "SELECTION_COMMITTEE";
+  const isAuthorized = user?.role === "SUPER_ADMIN" || user?.role === "SELECTION_COMMITTEE";
 
   const { data: schemes } = useSWR<SchemeRead[]>("/api/schemes", () => getSchemes());
-  const { data: applications, isLoading } = useSWR<ApplicationRead[]>(
-    isAuthorized ? "/api/applications" : null,
-    () => getApplications()
-  );
+  const { data: applications, isLoading } = useSWR<ApplicationRead[]>(isAuthorized ? "/api/applications" : null, () => getApplications());
 
-  const schemeMap = React.useMemo(() => {
-    const map = new Map<string, SchemeRead>();
-    schemes?.forEach((s) => map.set(s.id, s));
-    return map;
+  const schemeMap = useMemo(() => {
+    const m = new Map<string, SchemeRead>();
+    schemes?.forEach((s) => m.set(s.id, s));
+    return m;
   }, [schemes]);
 
-  // Derive selection states per scheme by inspecting workflow transitions
-  const selectionStatesByScheme = React.useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    schemes?.forEach((s) => {
-      const states = new Set<string>();
-      const transitions = s.config?.workflow_transitions || [];
-      transitions.forEach((t) => {
-        // State reached after documents_verified
-        if (t.trigger === "documents_verified") {
-          states.add(t.to_state);
-        }
-        // State from which committee approves/rejects
-        if (t.allowed_roles?.includes("SELECTION_COMMITTEE") && t.from_state) {
-          states.add(t.from_state);
-        }
-      });
-      if (states.size === 0) {
-        states.add("selection");
-      }
-      map.set(s.id, states);
-    });
-    return map;
-  }, [schemes]);
-
-  // Filter for applications in selection review state
-  const selectionApps = React.useMemo(() => {
+  const selectionApps = useMemo(() => {
     if (!applications) return [];
-    return applications.filter((a) => {
-      const allowedStates = selectionStatesByScheme.get(a.scheme_id);
-      if (allowedStates) {
-        return allowedStates.has(a.current_state);
-      }
-      return a.current_state === "selection";
-    });
-  }, [applications, selectionStatesByScheme]);
+    return applications.filter((a) => a.current_state === "selection" || a.current_state === "pending_selection");
+  }, [applications]);
 
-  const displayedApps = React.useMemo(() => {
-    return selectionApps.filter((a) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      return (
-        a.applicant_name.toLowerCase().includes(q) ||
-        a.applicant_email.toLowerCase().includes(q) ||
-        (schemeMap.get(a.scheme_id)?.code || "").toLowerCase().includes(q)
-      );
-    });
-  }, [selectionApps, searchQuery, schemeMap]);
+  const filtered = useMemo(() => {
+    if (!searchQuery) return selectionApps;
+    const q = searchQuery.toLowerCase();
+    return selectionApps.filter((a) => a.applicant_name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
+  }, [selectionApps, searchQuery]);
 
   if (!isAuthorized) {
     return (
       <div className="max-w-2xl mx-auto py-12">
-        <Card className="bg-slate-900/80 border-slate-800 text-slate-100 p-8 text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto">
-            <ShieldAlert className="w-6 h-6" />
-          </div>
-          <h2 className="text-xl font-bold text-white">Access Denied</h2>
-          <p className="text-xs text-slate-400 max-w-md mx-auto">
-            The Selection Committee Queue is restricted to authorized committee members and super administrators.
-            Your role (<span className="font-mono text-indigo-400">{user?.role}</span>) does not have committee evaluation privileges.
-          </p>
-          <div className="pt-2">
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:text-white">
-                Back to Dashboard
-              </Button>
-            </Link>
-          </div>
-        </Card>
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-8 text-center">
+          <ShieldAlert className="w-8 h-8 text-rose-400 mx-auto mb-2" />
+          <h2 className="text-lg font-bold text-rose-800">Access Denied</h2>
+          <p className="text-xs text-rose-500 mt-1">Restricted to Selection Committee members and Super Admins.</p>
+          <Link href="/dashboard" className="inline-block mt-3 px-4 py-2 text-xs font-medium bg-white border border-rose-200 rounded-lg text-rose-700 hover:bg-rose-50">Back to Dashboard</Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px] font-mono">
-              Committee Portal
-            </Badge>
-            <span className="text-xs text-slate-400 font-medium">Final Award Determination</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2 mt-1">
-            <UserCheck className="w-6 h-6 text-purple-400" />
-            Selection Committee Queue
-          </h1>
-          <p className="text-xs text-slate-400 mt-1 max-w-2xl">
-            Review candidates who have completed automated eligibility and officer document scrutiny.
-            Approve scholarship awards or issue committee rejections.
-          </p>
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-[#de5c36]" /> Selection Committee
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">Review eligible candidates for approval or rejection</p>
         </div>
-
-        {/* Counter Card */}
-        <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-xl">
-          <div className="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-            <Sparkles className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="text-xs text-slate-400 font-medium">Awaiting Review</div>
-            <div className="text-xl font-bold text-white leading-none">
-              {isLoading ? <Skeleton className="h-5 w-8 bg-slate-800" /> : selectionApps.length}
-            </div>
-          </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-center">
+          <div className="text-[10px] text-purple-600 font-medium">Pending Review</div>
+          <div className="text-lg font-bold text-purple-700">{selectionApps.length}</div>
         </div>
       </div>
 
-      {/* Filter and Search */}
-      <Card className="bg-slate-900/70 border-slate-800 p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <Input
-              placeholder="Search by candidate name, email, or scheme..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-slate-950/60 border-slate-800 text-xs text-slate-200 placeholder:text-slate-500 h-9"
-            />
-          </div>
+      <div className="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm">
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input className="w-full pl-9 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#de5c36]"
+            placeholder="Search by name or ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
-      </Card>
+      </div>
 
-      {/* Applications Table */}
-      <Card className="bg-slate-900/70 border-slate-800 overflow-hidden">
-        <Table>
-          <TableHeader className="bg-slate-950/40 border-b border-slate-800">
-            <TableRow className="hover:bg-transparent border-slate-800">
-              <TableHead className="text-slate-400 text-xs">Applicant</TableHead>
-              <TableHead className="text-slate-400 text-xs">Scheme</TableHead>
-              <TableHead className="text-slate-400 text-xs">Stage</TableHead>
-              <TableHead className="text-slate-400 text-xs">Submission Date</TableHead>
-              <TableHead className="text-slate-400 text-xs text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <TableRow key={i} className="border-slate-800/60">
-                  <TableCell><Skeleton className="h-4 w-36 bg-slate-800" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20 bg-slate-800" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24 bg-slate-800" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-28 bg-slate-800" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-7 w-20 ml-auto bg-slate-800" /></TableCell>
-                </TableRow>
-              ))
-            ) : displayedApps.length === 0 ? (
-              <TableRow className="border-slate-800/60">
-                <TableCell colSpan={5} className="py-12 text-center text-slate-500 text-xs">
-                  <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                  No candidates currently pending Selection Committee determination.
-                </TableCell>
-              </TableRow>
-            ) : (
-              displayedApps.map((app) => {
-                const scheme = schemeMap.get(app.scheme_id);
-                return (
-                  <TableRow key={app.id} className="border-slate-800/60 hover:bg-slate-800/40 transition-colors">
-                    <TableCell>
-                      <div>
-                        <div className="font-semibold text-slate-200 text-xs">{app.applicant_name}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{app.applicant_email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-slate-950/60 border-slate-700 text-slate-300 font-mono text-[10px]">
-                        {scheme?.code || "SCHEME"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">
-                        Selection Review
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-400 text-xs">
-                      {new Date(app.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link href={`/dashboard/selection/${app.id}`}>
-                        <Button
-                          size="sm"
-                          className="bg-purple-600 hover:bg-purple-500 text-white text-xs h-7 px-3 shadow-sm shadow-purple-600/20"
-                        >
-                          Review Dossier
-                          <ArrowRight className="w-3 h-3 ml-1.5" />
-                        </Button>
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-48"><div className="w-6 h-6 rounded-full border-2 border-[#de5c36] border-t-transparent animate-spin" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-48 text-sm text-gray-400">No applications pending selection review</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/50">
+                  <th className="px-5 py-3">Application ID</th><th className="px-5 py-3">Applicant</th>
+                  <th className="px-5 py-3">Scheme</th><th className="px-5 py-3">Submitted</th>
+                  <th className="px-5 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((app) => (
+                  <tr key={app.id} className="hover:bg-gray-50/70 transition">
+                    <td className="px-5 py-3 font-medium text-gray-800 text-[11px]">{app.id.slice(0, 14).toUpperCase()}</td>
+                    <td className="px-5 py-3 text-gray-700 font-medium">{app.applicant_name}</td>
+                    <td className="px-5 py-3 text-gray-500 text-[11px]">{schemeMap.get(app.scheme_id)?.name || "—"}</td>
+                    <td className="px-5 py-3 text-gray-400 text-[11px]">{new Date(app.created_at).toLocaleDateString()}</td>
+                    <td className="px-5 py-3 text-right">
+                      <Link href={`/dashboard/selection/${app.id}`}
+                        className="inline-flex items-center gap-1 px-3 py-1 text-[11px] font-medium bg-purple-50 hover:bg-purple-100 text-purple-700 rounded border border-purple-200 transition">
+                        Review <ArrowRight className="w-3 h-3" />
                       </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

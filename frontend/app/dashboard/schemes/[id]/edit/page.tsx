@@ -1,327 +1,99 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import useSWR from "swr";
-import {
-  getScheme,
-  updateScheme,
-  validateConfig,
-  type SchemeRead,
-  type ValidateConfigResponse,
-} from "@/lib/api";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  AlertCircle,
-  Save,
-  Check,
-  RefreshCw,
-  Loader2,
-  Code,
-  ShieldCheck,
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { getScheme, updateScheme, validateConfig, type SchemeRead, type ValidateConfigResponse } from "@/lib/api";
+import { ArrowLeft, Save, CheckCircle2, AlertCircle, Loader2, Code, ShieldCheck } from "lucide-react";
 
 export default function EditSchemePage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
-
-  const { data: scheme, isLoading: schemeLoading } = useSWR<SchemeRead>(
-    id ? `/api/schemes/${id}` : null,
-    () => getScheme(id)
-  );
+  const { data: scheme, isLoading } = useSWR<SchemeRead>(id ? `/api/schemes/${id}` : null, () => getScheme(id));
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [configJson, setConfigJson] = useState("");
-
+  const [initialized, setInitialized] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidateConfigResponse | null>(null);
   const [jsonParseError, setJsonParseError] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Initialize fields once scheme is loaded
-  useEffect(() => {
-    if (scheme) {
-      setName(scheme.name);
-      setDescription(scheme.description || "");
-      setConfigJson(JSON.stringify(scheme.config, null, 2));
-    }
-  }, [scheme]);
+  if (scheme && !initialized) {
+    setName(scheme.name); setDescription(scheme.description || "");
+    setConfigJson(JSON.stringify(scheme.config || {}, null, 2));
+    setInitialized(true);
+  }
 
   const handleValidate = async () => {
-    setJsonParseError(null);
-    setValidationResult(null);
-
-    let parsedConfig: Record<string, unknown>;
-    try {
-      parsedConfig = JSON.parse(configJson);
-    } catch (err: unknown) {
-      setJsonParseError(
-        err instanceof Error ? err.message : "Invalid JSON syntax. Please verify JSON format."
-      );
-      return;
-    }
-
+    setJsonParseError(null); setValidationResult(null);
+    let parsed: Record<string, unknown>;
+    try { parsed = JSON.parse(configJson); } catch { setJsonParseError("Invalid JSON"); return; }
     setIsValidating(true);
-    try {
-      const res = await validateConfig(parsedConfig);
-      setValidationResult(res);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setJsonParseError(err.message);
-      } else {
-        setJsonParseError("Failed to communicate with schema validator.");
-      }
-    } finally {
-      setIsValidating(false);
-    }
+    try { const res = await validateConfig(parsed); setValidationResult(res); } catch (err: any) { setJsonParseError(err?.message || "Failed"); } finally { setIsValidating(false); }
   };
 
-  const handleSave = async () => {
-    let parsedConfig: Record<string, unknown>;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    let parsed: Record<string, unknown>;
+    try { parsed = JSON.parse(configJson); } catch { setJsonParseError("Invalid JSON"); return; }
+    setIsSubmitting(true);
     try {
-      parsedConfig = JSON.parse(configJson);
-    } catch (err: unknown) {
-      setJsonParseError("Cannot save invalid JSON. Please check syntax.");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      await updateScheme(id, {
-        name: name.trim(),
-        description: description.trim(),
-        config: parsedConfig,
-      });
-      setSaveSuccess(true);
-      setTimeout(() => {
-        router.push(`/dashboard/schemes/${id}`);
-      }, 800);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to update scheme");
-    } finally {
-      setIsSaving(false);
-    }
+      await updateScheme(id, { name: name.trim(), description: description.trim(), config: parsed });
+      router.push(`/dashboard/schemes/${id}`);
+    } catch (err: any) { alert(err?.message || "Failed"); } finally { setIsSubmitting(false); }
   };
 
-  const handleReset = () => {
-    if (scheme) {
-      setName(scheme.name);
-      setDescription(scheme.description || "");
-      setConfigJson(JSON.stringify(scheme.config, null, 2));
-      setValidationResult(null);
-      setJsonParseError(null);
-    }
-  };
-
-  if (schemeLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48 bg-slate-800" />
-        <Skeleton className="h-64 w-full bg-slate-800" />
-      </div>
-    );
-  }
-
-  if (!scheme) {
-    return (
-      <div className="p-8 text-center text-slate-400">
-        Scheme not found.
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 rounded-full border-2 border-[#de5c36] border-t-transparent animate-spin" /></div>;
+  if (!scheme) return <div className="p-8 text-center text-gray-400">Scheme not found.</div>;
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between">
-        <Link href={`/dashboard/schemes/${id}`}>
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs h-8">
-            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Details
-          </Button>
-        </Link>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleReset}
-            className="border-slate-800 text-slate-400 hover:text-white text-xs h-8"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-            Reset
-          </Button>
-
-          <Button
-            id="validate-config-btn"
-            variant="outline"
-            size="sm"
-            onClick={handleValidate}
-            disabled={isValidating}
-            className="border-indigo-600/50 text-indigo-300 hover:bg-indigo-950/40 text-xs h-8"
-          >
-            {isValidating ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-            ) : (
-              <ShieldCheck className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            Validate Config
-          </Button>
-
-          <Button
-            id="save-scheme-btn"
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving || (validationResult !== null && !validationResult.valid)}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs h-8 shadow-md shadow-indigo-600/20"
-          >
-            {isSaving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-            ) : saveSuccess ? (
-              <Check className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
-            ) : (
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-            )}
-            {saveSuccess ? "Saved!" : "Save Changes"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Header */}
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <Link href={`/dashboard/schemes/${id}`} className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900"><ArrowLeft className="w-3.5 h-3.5" /> Back to Scheme</Link>
       <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Edit Scheme Configuration</h1>
-          <span className="font-mono text-xs font-bold text-indigo-400 px-2 py-0.5 rounded bg-indigo-950/60 border border-indigo-800/40">
-            {scheme.code}
-          </span>
-        </div>
-        <p className="text-xs text-slate-400 mt-1">
-          Modify scheme metadata and declarative JSON schema controlling rules, documents, and workflows
-        </p>
+        <h2 className="text-xl font-bold text-gray-900 tracking-tight">Edit Scheme: {scheme.code}</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Modify scheme configuration, eligibility rules, and workflow</p>
       </div>
 
-      {/* Basic Metadata Card */}
-      <Card className="bg-slate-900/60 border-slate-800 text-slate-100 p-5 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="scheme-name" className="text-xs font-medium text-slate-300">
-              Scheme Name
-            </Label>
-            <Input
-              id="scheme-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="bg-slate-950/70 border-slate-700/80 text-xs text-slate-100"
-            />
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
+          <h3 className="text-sm font-bold text-gray-900">Basic Information</h3>
+          <div>
+            <label className="text-[11px] text-gray-500 font-medium">Scheme Name *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} required className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#de5c36]" />
           </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="scheme-code" className="text-xs font-medium text-slate-300">
-              Scheme Code (Immutable)
-            </Label>
-            <Input
-              id="scheme-code"
-              value={scheme.code}
-              disabled
-              className="bg-slate-950/30 border-slate-800 text-xs text-slate-500 font-mono cursor-not-allowed"
-            />
+          <div>
+            <label className="text-[11px] text-gray-500 font-medium">Description</label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="w-full mt-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#de5c36] h-20" />
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="scheme-description" className="text-xs font-medium text-slate-300">
-            Scheme Description
-          </Label>
-          <Textarea
-            id="scheme-description"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="bg-slate-950/70 border-slate-700/80 text-xs text-slate-100"
-          />
-        </div>
-      </Card>
-
-      {/* JSON Config Editor Card */}
-      <Card className="bg-slate-900/60 border-slate-800 text-slate-100 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Code className="w-4 h-4 text-indigo-400" />
-            <span className="text-xs font-semibold text-white">Declarative Scheme Config (JSON)</span>
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2"><Code className="w-4 h-4 text-[#de5c36]" /> Configuration JSON</h3>
+            <button type="button" onClick={handleValidate} disabled={isValidating}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#105a8b] hover:bg-[#0d4b74] text-white rounded-lg shadow-sm transition disabled:opacity-50">
+              {isValidating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />} Validate
+            </button>
           </div>
-          <span className="text-[11px] text-slate-400">
-            Defines eligibility_rules, required_documents, workflow_states, workflow_transitions
-          </span>
-        </div>
-
-        <Textarea
-          id="config-json-editor"
-          rows={22}
-          value={configJson}
-          onChange={(e) => {
-            setConfigJson(e.target.value);
-            // Invalidate validation status on edit
-            if (validationResult) setValidationResult(null);
-            if (jsonParseError) setJsonParseError(null);
-          }}
-          className="font-mono text-xs bg-slate-950 border-slate-800 text-slate-200 leading-relaxed focus-visible:ring-indigo-500/50 p-4"
-          spellCheck={false}
-        />
-
-        {/* JSON Syntax Error alert */}
-        {jsonParseError && (
-          <div id="json-parse-error-alert" className="p-3 bg-red-950/50 border border-red-800/80 rounded-lg text-xs text-red-300 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="font-semibold text-red-200">JSON Syntax Error:</div>
-              <div className="font-mono text-[11px] mt-0.5">{jsonParseError}</div>
+          <textarea value={configJson} onChange={(e) => { setConfigJson(e.target.value); setJsonParseError(null); setValidationResult(null); }}
+            className="w-full px-3 py-2 text-xs font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#de5c36] h-80 bg-gray-50" spellCheck={false} />
+          {jsonParseError && <div className="p-2 bg-rose-50 text-rose-700 text-xs rounded border border-rose-200 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> {jsonParseError}</div>}
+          {validationResult && (
+            <div className={`p-2 text-xs rounded border flex items-center gap-1.5 ${validationResult.valid ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}>
+              {validationResult.valid ? <><CheckCircle2 className="w-3.5 h-3.5" /> Valid</> : <><AlertCircle className="w-3.5 h-3.5" /> {validationResult.errors?.join(", ") || "Invalid"}</>}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        {/* Validation Result Box */}
-        {validationResult && (
-          <div
-            id="validation-result-alert"
-            className={`p-3 rounded-lg text-xs border flex items-start gap-2 ${
-              validationResult.valid
-                ? "bg-emerald-950/50 border-emerald-800/80 text-emerald-200"
-                : "bg-red-950/50 border-red-800/80 text-red-200"
-            }`}
-          >
-            {validationResult.valid ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-            )}
-            <div className="space-y-1">
-              <div className="font-semibold">
-                {validationResult.valid
-                  ? "Schema Validation Passed: Configuration is strictly valid."
-                  : "Schema Validation Failed:"}
-              </div>
-              {validationResult.errors && validationResult.errors.length > 0 && (
-                <ul className="list-disc list-inside space-y-0.5 font-mono text-[11px] text-red-300">
-                  {validationResult.errors.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        )}
-      </Card>
+        <button type="submit" disabled={isSubmitting}
+          className="w-full py-3 text-sm font-semibold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-xl shadow-sm transition disabled:opacity-50">
+          {isSubmitting ? "Saving..." : "Save Changes"}
+        </button>
+      </form>
     </div>
   );
 }

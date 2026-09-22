@@ -5,423 +5,216 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
 import {
-  getApplication,
-  getScheme,
-  getDocuments,
-  getDeficiencySummary,
-  runDocumentScrutiny,
-  resubmitDocument,
-  type ApplicationRead,
-  type SchemeRead,
-  type DocumentRead,
-  type DeficiencySummary,
+  getApplication, getScheme, getDocuments, getDeficiencySummary,
+  runDocumentScrutiny, resubmitDocument,
+  type ApplicationRead, type SchemeRead, type DocumentRead, type DeficiencySummary,
 } from "@/lib/api";
 import {
-  ArrowLeft,
-  FileCheck2,
-  AlertTriangle,
-  CheckCircle2,
-  Play,
-  Upload,
-  Clock,
-  Loader2,
-  FileText,
-  ShieldAlert,
-  Sparkles,
-  ExternalLink,
-  Check,
+  ArrowLeft, FileCheck2, AlertTriangle, CheckCircle2, Play,
+  Upload, Loader2, FileText, ShieldCheck, Check, X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
+function DocBadge({ status }: { status: string }) {
+  const cls = status === "VERIFIED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+              status === "DEFICIENT" ? "bg-rose-50 text-rose-700 border-rose-200" :
+              "bg-amber-50 text-amber-700 border-amber-200";
+  return <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${cls}`}>{status}</span>;
+}
 
 export default function ScrutinyDetailPage() {
   const params = useParams();
   const id = params?.id as string;
 
   const { data: app, isLoading: appLoading, mutate: mutateApp } = useSWR<ApplicationRead>(
-    id ? `/api/applications/${id}` : null,
-    () => getApplication(id)
+    id ? `/api/applications/${id}` : null, () => getApplication(id)
   );
-
   const { data: scheme } = useSWR<SchemeRead>(
-    app?.scheme_id ? `/api/schemes/${app.scheme_id}` : null,
-    () => getScheme(app!.scheme_id)
+    app?.scheme_id ? `/api/schemes/${app.scheme_id}` : null, () => getScheme(app!.scheme_id)
   );
-
   const { data: documents, isLoading: docsLoading, mutate: mutateDocs } = useSWR<DocumentRead[]>(
-    id ? `/api/applications/${id}/documents` : null,
-    () => getDocuments(id)
+    id ? `/api/applications/${id}/documents` : null, () => getDocuments(id)
   );
-
   const { data: deficiencySummary, mutate: mutateDeficiency } = useSWR<DeficiencySummary>(
-    id ? `/api/applications/${id}/deficiency-summary` : null,
-    () => getDeficiencySummary(id)
+    id ? `/api/applications/${id}/deficiency-summary` : null, () => getDeficiencySummary(id)
   );
 
   const [isRunningScrutiny, setIsRunningScrutiny] = useState(false);
-  const [scrutinySuccessMsg, setScrutinySuccessMsg] = useState<string | null>(null);
-
-  // Resubmit modal state
+  const [scrutinyMsg, setScrutinyMsg] = useState<string | null>(null);
   const [resubmitDoc, setResubmitDoc] = useState<DocumentRead | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const handleRunScrutiny = async () => {
-    setIsRunningScrutiny(true);
-    setScrutinySuccessMsg(null);
+    setIsRunningScrutiny(true); setScrutinyMsg(null);
     try {
-      const res = await runDocumentScrutiny(id);
-      setScrutinySuccessMsg("Document scrutiny executed successfully. Review findings below.");
-      // Mutate all relevant data
-      mutateApp();
-      mutateDocs();
-      mutateDeficiency();
+      await runDocumentScrutiny(id);
+      setScrutinyMsg("Document scrutiny executed successfully.");
+      mutateApp(); mutateDocs(); mutateDeficiency();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to run document scrutiny");
-    } finally {
-      setIsRunningScrutiny(false);
-    }
+      alert(err instanceof Error ? err.message : "Failed to run scrutiny");
+    } finally { setIsRunningScrutiny(false); }
   };
 
   const handleResubmit = async () => {
     if (!resubmitDoc || !selectedFile) return;
-
     setIsUploading(true);
     try {
       await resubmitDocument(id, resubmitDoc.id, selectedFile);
-      setResubmitDoc(null);
-      setSelectedFile(null);
-      // Refresh documents and deficiency summary
-      mutateApp();
-      mutateDocs();
-      mutateDeficiency();
+      setResubmitDoc(null); setSelectedFile(null);
+      mutateApp(); mutateDocs(); mutateDeficiency();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to upload replacement document");
-    } finally {
-      setIsUploading(false);
-    }
+      alert(err instanceof Error ? err.message : "Failed to upload");
+    } finally { setIsUploading(false); }
   };
 
-  if (appLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-40 bg-slate-800" />
-        <Skeleton className="h-32 w-full bg-slate-800" />
-        <Skeleton className="h-64 w-full bg-slate-800" />
-      </div>
-    );
-  }
-
-  if (!app) {
-    return (
-      <div className="p-8 text-center text-slate-400">
-        Application not found.
-      </div>
-    );
-  }
+  if (appLoading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 rounded-full border-2 border-[#de5c36] border-t-transparent animate-spin" /></div>;
+  if (!app) return <div className="p-8 text-center text-gray-400">Application not found.</div>;
 
   const missingDocs = deficiencySummary?.missing_documents || [];
+  const verifiedDocs = documents?.filter((d) => d.status === "VERIFIED") || [];
+  const deficientDocs = documents?.filter((d) => d.status === "DEFICIENT") || [];
+  const pendingDocs = documents?.filter((d) => d.status === "PENDING") || [];
 
   return (
     <div className="space-y-6">
-      {/* Top Navigation & Action */}
+      {/* Top Nav */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <Link href="/dashboard/scrutiny">
-          <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white text-xs h-8">
-            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Scrutiny Queue
-          </Button>
+        <Link href="/dashboard/scrutiny" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Scrutiny Queue
         </Link>
-
         <div className="flex items-center gap-2">
-          <Link href={`/dashboard/applications/${app.id}`}>
-            <Button variant="outline" size="sm" className="text-xs h-8 border-slate-800 bg-slate-900 text-slate-300">
-              View Application
-            </Button>
-          </Link>
-
-          <Button
-            id="run-scrutiny-btn"
-            size="sm"
-            onClick={handleRunScrutiny}
-            disabled={isRunningScrutiny}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs h-8 shadow-md shadow-indigo-600/20"
-          >
-            {isRunningScrutiny ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                Executing OCR Scrutiny...
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 mr-1.5" />
-                Run Document Scrutiny
-              </>
-            )}
-          </Button>
+          <Link href={`/dashboard/applications/${app.id}`} className="px-3 py-1.5 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">View Application</Link>
+          <button id="run-scrutiny-btn" onClick={handleRunScrutiny} disabled={isRunningScrutiny}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-lg shadow-sm transition disabled:opacity-50">
+            {isRunningScrutiny ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Executing OCR...</> : <><Play className="w-3.5 h-3.5" /> Run Document Scrutiny</>}
+          </button>
         </div>
       </div>
 
+      {scrutinyMsg && (
+        <div className="p-3 bg-emerald-50 text-emerald-700 text-xs rounded-lg border border-emerald-200 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4" /> {scrutinyMsg}
+        </div>
+      )}
+
       {/* Header Banner */}
-      <Card className="bg-slate-900/70 border-slate-800 text-slate-100 backdrop-blur-sm p-6 space-y-3">
+      <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 rounded-xl p-6 border border-amber-200 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-indigo-400 px-2 py-0.5 rounded bg-indigo-950/60 border border-indigo-800/40">
-                {scheme?.code || "SCHEME"}
-              </span>
-              <Badge
-                className={
-                  app.current_state === "deficient"
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40 text-xs"
-                    : "bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs"
-                }
-              >
-                {app.current_state === "deficient" ? "Deficient Notice" : "Document Scrutiny Stage"}
-              </Badge>
+              <span className="font-mono text-xs font-bold text-[#de5c36] px-2 py-0.5 rounded bg-white/60 border border-[#de5c36]/30">{scheme?.code || "SCHEME"}</span>
+              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                app.current_state === "deficient" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}>{app.current_state === "deficient" ? "Deficient Notice" : "Document Scrutiny"}</span>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight pt-1">
-              Scrutiny Workbench: {app.applicant_name}
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Candidate Email: {app.applicant_email} • Application ID: {app.id}
-            </p>
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight pt-1">Scrutiny Workbench: {app.applicant_name}</h1>
+            <p className="text-xs text-gray-500 mt-0.5">{app.applicant_email} • ID: {app.id.slice(0, 14)}</p>
           </div>
-
-          <div className="text-right text-xs text-slate-400">
-            <div>Verification Status:</div>
-            <div className="font-semibold text-slate-200 mt-0.5 capitalize">
-              {app.current_state.replace("_", " ")}
+          <div className="flex items-center gap-3">
+            <div className="bg-white rounded-lg p-3 border border-emerald-200 text-center">
+              <div className="text-[10px] text-gray-400">Verified</div>
+              <div className="text-lg font-bold text-emerald-700">{verifiedDocs.length}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-rose-200 text-center">
+              <div className="text-[10px] text-gray-400">Deficient</div>
+              <div className="text-lg font-bold text-rose-600">{deficientDocs.length}</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-amber-200 text-center">
+              <div className="text-[10px] text-gray-400">Pending</div>
+              <div className="text-lg font-bold text-amber-600">{pendingDocs.length}</div>
             </div>
           </div>
-        </div>
-
-        {/* Success Alert */}
-        {scrutinySuccessMsg && (
-          <div className="p-3 bg-emerald-950/60 border border-emerald-800/80 rounded-lg text-xs text-emerald-200 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{scrutinySuccessMsg}</span>
-          </div>
-        )}
-
-        {/* Missing Documents Alert */}
-        {missingDocs.length > 0 && (
-          <div className="p-3 bg-rose-950/60 border border-rose-800/80 rounded-lg text-xs text-rose-200 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
-            <div>
-              <div className="font-semibold text-rose-200">Mandatory Documents Missing:</div>
-              <ul className="list-disc list-inside mt-1 space-y-0.5 text-[11px] text-rose-300 font-mono">
-                {missingDocs.map((docType, idx) => (
-                  <li key={idx}>{docType}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Uploaded Documents List */}
-      <div className="space-y-4">
-        <h2 className="text-base font-semibold text-white tracking-tight">
-          Submitted Certificates & Documents ({documents?.length ?? 0})
-        </h2>
-
-        <div className="grid grid-cols-1 gap-4">
-          {docsLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-32 w-full bg-slate-800" />
-              <Skeleton className="h-32 w-full bg-slate-800" />
-            </div>
-          ) : documents && documents.length > 0 ? (
-            documents.map((doc) => {
-              const isDeficient = doc.status === "DEFICIENT";
-              const isVerified = doc.status === "VERIFIED";
-
-              return (
-                <Card
-                  key={doc.id}
-                  className={`bg-slate-900/70 border text-slate-100 p-5 space-y-4 backdrop-blur-sm ${
-                    isDeficient
-                      ? "border-rose-900/60"
-                      : isVerified
-                      ? "border-emerald-900/40"
-                      : "border-slate-800"
-                  }`}
-                >
-                  {/* Top line: doc_type & Status Badge */}
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-indigo-300">
-                          {doc.doc_type}
-                        </span>
-                        {isVerified ? (
-                          <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            Verified
-                          </Badge>
-                        ) : isDeficient ? (
-                          <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/40 text-[10px] gap-1">
-                            <AlertTriangle className="w-3 h-3 text-rose-400" />
-                            Deficient
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] gap-1">
-                            <Clock className="w-3 h-3 text-amber-400" />
-                            Pending Review
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        Uploaded {new Date(doc.uploaded_at).toLocaleString()} • Storage Key:{" "}
-                        <span className="font-mono text-slate-500">{doc.storage_key}</span>
-                      </div>
-                    </div>
-
-                    {/* Resubmit button */}
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setResubmitDoc(doc);
-                          setSelectedFile(null);
-                        }}
-                        className="text-xs h-7 border-slate-700 bg-slate-800/80 text-slate-200 hover:text-white"
-                      >
-                        <Upload className="w-3 h-3 mr-1.5" />
-                        Resubmit Document
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Deficiencies warning box if any */}
-                  {doc.deficiency_reasons && doc.deficiency_reasons.length > 0 && (
-                    <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-lg space-y-1">
-                      <div className="text-[11px] font-semibold text-rose-300 flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                        Deficiency Findings:
-                      </div>
-                      <div className="space-y-1 pl-5">
-                        {doc.deficiency_reasons.map((reason, rIdx) => (
-                          <div key={rIdx} className="text-xs text-rose-200">
-                            <span className="font-mono text-[10px] px-1 py-0.5 rounded bg-rose-900/40 border border-rose-800/50 mr-1.5">
-                              {reason.code}
-                            </span>
-                            <span>{reason.message}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* OCR Extracted Fields */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                      OCR Extracted Attributes
-                    </div>
-                    {doc.extracted_fields && Object.keys(doc.extracted_fields).length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                        {Object.entries(doc.extracted_fields).map(([k, v]) => (
-                          <div
-                            key={k}
-                            className="p-2 rounded bg-slate-950/60 border border-slate-800/80 text-xs"
-                          >
-                            <div className="text-[10px] text-slate-500 capitalize">{k.replace(/_/g, " ")}</div>
-                            <div className="font-semibold text-slate-200 truncate mt-0.5 font-mono text-[11px]">
-                              {String(v)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-slate-500 italic">
-                        No OCR fields extracted yet. Click &quot;Run Document Scrutiny&quot; to execute automated extraction.
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })
-          ) : (
-            <Card className="p-8 text-center text-xs text-slate-500 bg-slate-900/40 border-slate-800">
-              No documents submitted for this application.
-            </Card>
-          )}
         </div>
       </div>
 
+      {/* Missing Documents Alert */}
+      {missingDocs.length > 0 && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+          <h3 className="text-xs font-bold text-rose-800 flex items-center gap-1.5 mb-2"><AlertTriangle className="w-4 h-4" /> Missing Required Documents</h3>
+          <div className="flex flex-wrap gap-2">
+            {missingDocs.map((docType) => (
+              <span key={docType} className="px-2.5 py-1 text-[11px] font-medium bg-white border border-rose-200 rounded-full text-rose-700">{docType}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Document Analysis Table */}
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-100">
+          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2"><FileCheck2 className="w-4 h-4 text-[#de5c36]" /> Document Analysis ({documents?.length ?? 0})</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/50">
+                <th className="px-4 py-2.5">Document Type</th><th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">OCR Findings</th><th className="px-4 py-2.5">Uploaded</th>
+                <th className="px-4 py-2.5 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {docsLoading ? (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+              ) : documents && documents.length > 0 ? (
+                documents.map((doc) => (
+                  <tr key={doc.id} className="hover:bg-gray-50/70">
+                    <td className="px-4 py-2.5 font-mono text-[11px] text-[#de5c36] font-medium">{doc.doc_type}</td>
+                    <td className="px-4 py-2.5"><DocBadge status={doc.status} /></td>
+                    <td className="px-4 py-2.5 text-[11px]">
+                      {doc.deficiency_reasons && doc.deficiency_reasons.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {doc.deficiency_reasons.map((r, i) => (
+                            <div key={i} className="text-rose-600 flex items-center gap-1"><AlertTriangle className="w-3 h-3 shrink-0" />{r.message}</div>
+                          ))}
+                        </div>
+                      ) : doc.status === "VERIFIED" ? (
+                        <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Passed OCR</span>
+                      ) : <span className="text-gray-400">Awaiting analysis</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-gray-400 text-[11px]">{new Date(doc.uploaded_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      {doc.status === "DEFICIENT" && (
+                        <button onClick={() => { setResubmitDoc(doc); setSelectedFile(null); }}
+                          className="px-2.5 py-1 text-[11px] font-medium bg-amber-50 hover:bg-amber-100 text-amber-700 rounded border border-amber-200">
+                          <Upload className="w-3 h-3 inline mr-1" />Resubmit
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No documents found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Deficiency Summary */}
+      {deficiencySummary && (missingDocs.length > 0 || deficientDocs.length > 0) && (
+        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-3"><ShieldCheck className="w-4 h-4 text-[#de5c36]" /> Deficiency Summary</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-400">Deficient Docs</div><div className="text-lg font-bold text-rose-600">{deficientDocs.length}</div></div>
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-400">Missing Docs</div><div className="text-lg font-bold text-amber-600">{missingDocs.length}</div></div>
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-400">Documents Total</div><div className="text-lg font-bold text-gray-800">{documents?.length ?? 0}</div></div>
+            <div className="bg-gray-50 rounded-lg p-3"><div className="text-gray-400">Status</div><div className="text-lg font-bold text-rose-600">{(missingDocs.length > 0 || deficientDocs.length > 0) ? "DEFICIENT" : "OK"}</div></div>
+          </div>
+        </div>
+      )}
+
       {/* Resubmit Modal */}
       {resubmitDoc && (
-        <Dialog open={!!resubmitDoc} onOpenChange={(open) => !open && setResubmitDoc(null)}>
-          <DialogContent className="bg-slate-900 border-slate-800 text-slate-100 max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-base text-white">
-                Resubmit Document: {resubmitDoc.doc_type}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">
-                Upload a corrected certificate or document to address identified deficiencies.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-3">
-              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs space-y-1">
-                <div className="text-slate-400">Document Type:</div>
-                <div className="font-mono text-indigo-300 font-semibold">{resubmitDoc.doc_type}</div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-300">Select Replacement File</label>
-                <input
-                  type="file"
-                  id="resubmit-file-input"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500 cursor-pointer border border-slate-800 rounded-lg p-2 bg-slate-950"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setResubmitDoc(null)}
-                className="text-xs text-slate-400"
-              >
-                Cancel
-              </Button>
-              <Button
-                id="confirm-resubmit-btn"
-                size="sm"
-                disabled={!selectedFile || isUploading}
-                onClick={handleResubmit}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-3.5 h-3.5 mr-1.5" />
-                    Confirm Resubmission
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"><div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+          <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-bold text-gray-900">Resubmit: {resubmitDoc.doc_type}</h3><button onClick={() => setResubmitDoc(null)}><X className="w-4 h-4 text-gray-400" /></button></div>
+          <p className="text-xs text-gray-500 mb-3">Upload a corrected replacement document for OCR re-analysis.</p>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} className="w-full text-xs mb-3" />
+          <button onClick={handleResubmit} disabled={!selectedFile || isUploading}
+            className="w-full py-2 text-xs font-semibold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-lg transition disabled:opacity-50">
+            {isUploading ? "Uploading..." : "Upload Replacement"}
+          </button>
+        </div></div>
       )}
     </div>
   );

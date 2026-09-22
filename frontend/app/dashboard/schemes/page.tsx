@@ -3,234 +3,93 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import {
-  getSchemes,
-  activateScheme,
-  deactivateScheme,
-  type SchemeRead,
-} from "@/lib/api";
+import { getSchemes, activateScheme, deactivateScheme, type SchemeRead } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import {
-  Layers,
-  Plus,
-  ArrowUpRight,
-  CheckCircle2,
-  XCircle,
-  Power,
-  Edit,
-  Loader2,
-  Calendar,
-  Sparkles,
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Sliders, Plus, CheckCircle2, XCircle, Power, Edit, Loader2, ArrowRight } from "lucide-react";
 
 export default function SchemesPage() {
   const { user } = useAuth();
-  const { data: schemes, isLoading, mutate } = useSWR<SchemeRead[]>(
-    "/api/schemes",
-    () => getSchemes()
-  );
+  const { data: schemes, isLoading, mutate } = useSWR<SchemeRead[]>("/api/schemes", () => getSchemes());
+  const [toggling, setToggling] = useState<string | null>(null);
 
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-
-  const canManageSchemes =
-    user?.role === "SUPER_ADMIN" || user?.role === "SCHEME_ADMIN";
-
-  const handleToggleActive = async (e: React.MouseEvent, scheme: SchemeRead) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setTogglingId(scheme.id);
-
+  const handleToggle = async (scheme: SchemeRead) => {
+    setToggling(scheme.id);
     try {
-      if (scheme.is_active) {
-        await deactivateScheme(scheme.id);
-      } else {
-        await activateScheme(scheme.id);
-      }
+      if (scheme.is_active) await deactivateScheme(scheme.id);
+      else await activateScheme(scheme.id);
       mutate();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to toggle status");
-    } finally {
-      setTogglingId(null);
-    }
+    } catch (err: any) { alert(err?.message || "Failed"); } finally { setToggling(null); }
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Scholarship Schemes</h1>
-            <Badge variant="outline" className="text-xs bg-slate-900 border-slate-700 text-slate-300">
-              {schemes?.length ?? 0} total
-            </Badge>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Configurable scheme definitions governing eligibility, document mandates, and state transition workflows
-          </p>
+          <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-[#de5c36]" /> Scheme Configurator
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">Manage scholarship &amp; fellowship scheme configurations</p>
         </div>
-
-        {canManageSchemes && (
-          <Link href="/dashboard/schemes/new">
-            <Button
-              id="create-scheme-btn"
-              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs h-9 shadow-md shadow-indigo-600/20"
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              New Scheme
-            </Button>
-          </Link>
-        )}
+        <Link href="/dashboard/schemes/new"
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-lg shadow-sm transition">
+          <Plus className="w-4 h-4" /> Create New Scheme
+        </Link>
       </div>
 
-      {/* Schemes Table Card */}
-      <Card className="bg-slate-900/60 border-slate-800 text-slate-100 backdrop-blur-sm overflow-hidden">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-slate-950/40 border-b border-slate-800">
-              <TableRow className="border-slate-800 hover:bg-transparent">
-                <TableHead className="text-slate-400 text-xs font-semibold">Code</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Scheme Name</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Version</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Status</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Rules / Docs</TableHead>
-                <TableHead className="text-slate-400 text-xs font-semibold">Created At</TableHead>
-                <TableHead className="text-right text-slate-400 text-xs font-semibold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-800/80">
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i} className="border-slate-800">
-                    <TableCell><Skeleton className="h-5 w-16 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-48 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-8 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20 bg-slate-800" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-24 bg-slate-800" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-7 w-20 ml-auto bg-slate-800" /></TableCell>
-                  </TableRow>
-                ))
-              ) : schemes && schemes.length > 0 ? (
-                schemes.map((scheme) => {
-                  const rulesCount = scheme.config?.eligibility_rules?.length ?? 0;
-                  const docsCount = scheme.config?.required_documents?.length ?? 0;
-
-                  return (
-                    <TableRow
-                      key={scheme.id}
-                      className="border-slate-800 hover:bg-slate-800/40 cursor-pointer transition-colors group"
-                      onClick={() => (window.location.href = `/dashboard/schemes/${scheme.id}`)}
-                    >
-                      <TableCell className="font-mono text-xs font-bold text-indigo-400">
-                        {scheme.code}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-xs text-slate-200 group-hover:text-white transition-colors">
-                          {scheme.name}
-                        </div>
-                        {scheme.description && (
-                          <div className="text-[11px] text-slate-400 line-clamp-1 max-w-sm mt-0.5">
-                            {scheme.description}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-300 font-mono">
-                        v{scheme.config?.version ?? 1}
-                      </TableCell>
-                      <TableCell>
-                        {scheme.is_active ? (
-                          <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-slate-400 border-slate-700 text-[10px] gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                            Inactive
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-400">
-                        <span className="text-slate-300 font-medium">{rulesCount}</span> rules •{" "}
-                        <span className="text-slate-300 font-medium">{docsCount}</span> docs
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-400">
-                        {new Date(scheme.created_at).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-2">
-                          <Link href={`/dashboard/schemes/${scheme.id}`}>
-                            <Button variant="ghost" size="sm" className="h-7 text-xs text-slate-300 hover:text-white px-2">
-                              View
-                            </Button>
-                          </Link>
-
-                          {canManageSchemes && (
-                            <>
-                              <Link href={`/dashboard/schemes/${scheme.id}/edit`}>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs text-indigo-300 hover:text-indigo-200 px-2"
-                                >
-                                  <Edit className="w-3.5 h-3.5 mr-1" />
-                                  Edit
-                                </Button>
-                              </Link>
-
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={togglingId === scheme.id}
-                                onClick={(e) => handleToggleActive(e, scheme)}
-                                className={`h-7 text-xs px-2.5 ${
-                                  scheme.is_active
-                                    ? "border-rose-900/60 text-rose-300 hover:bg-rose-950/40 hover:text-rose-200"
-                                    : "border-emerald-900/60 text-emerald-300 hover:bg-emerald-950/40 hover:text-emerald-200"
-                                }`}
-                              >
-                                {togglingId === scheme.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                                ) : (
-                                  <Power className="w-3 h-3 mr-1" />
-                                )}
-                                {scheme.is_active ? "Deactivate" : "Activate"}
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-xs text-slate-500">
-                    No scholarship schemes found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-48"><div className="w-6 h-6 rounded-full border-2 border-[#de5c36] border-t-transparent animate-spin" /></div>
+        ) : !schemes || schemes.length === 0 ? (
+          <div className="flex items-center justify-center h-48 text-sm text-gray-400">No schemes configured yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/50">
+                  <th className="px-5 py-3">Scheme Code</th><th className="px-5 py-3">Name</th>
+                  <th className="px-5 py-3">Status</th><th className="px-5 py-3">Created</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {schemes.map((scheme) => (
+                  <tr key={scheme.id} className="hover:bg-gray-50/70 transition">
+                    <td className="px-5 py-3 font-mono text-[11px] font-bold text-[#de5c36]">{scheme.code}</td>
+                    <td className="px-5 py-3 font-medium text-gray-800">{scheme.name}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                        scheme.is_active ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-50 text-gray-500 border-gray-200"
+                      }`}>
+                        {scheme.is_active ? <><CheckCircle2 className="w-3 h-3" /> Active</> : <><XCircle className="w-3 h-3" /> Inactive</>}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-400 text-[11px]">{new Date(scheme.created_at).toLocaleDateString()}</td>
+                    <td className="px-5 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link href={`/dashboard/schemes/${scheme.id}`}
+                          className="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">
+                          View
+                        </Link>
+                        <Link href={`/dashboard/schemes/${scheme.id}/edit`}
+                          className="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">
+                          <Edit className="w-3 h-3 inline mr-0.5" />Edit
+                        </Link>
+                        <button onClick={() => handleToggle(scheme)} disabled={toggling === scheme.id}
+                          className={`px-2.5 py-1 text-[11px] font-medium rounded border transition disabled:opacity-50 ${
+                            scheme.is_active ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200" : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+                          }`}>
+                          {toggling === scheme.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : <Power className="w-3 h-3 inline mr-0.5" />}
+                          {scheme.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

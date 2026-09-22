@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Ministry of Tribal Affairs - Scholarship &amp; Fellowship Management System</title>
+<!-- Tailwind CSS v3 with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            sidebarBg: '#2b2d30',
+            sidebarHover: '#383b40',
+            terracotta: '#d95a2b',
+            terracottaLight: '#fdeee8',
+            sandBg: '#f8f6f2',
+            sandCard: '#ffffff',
+            navyDark: '#1a2738',
+            goldAccent: '#d69e2e',
+            sageGreen: '#2e7d32',
+            badgeGreen: '#e8f5e9',
+            badgeRed: '#ffebee',
+            badgeYellow: '#fff8e1',
+            badgeBlue: '#e3f2fd'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            serif: ['Georgia', 'Cambria', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<!-- Custom Styles: Decorative & Patterns -->
+<style data-purpose="decorative-patterns">
+    /* Subtle tribal pattern watermark simulation */
+    .tribal-watermark {
+      background-image: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.04) 2px, transparent 0);
+      background-size: 20px 20px;
+    }
+    
+    /* Subtle wave decor for KPI cards */
+    .card-wave {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 28px;
+      opacity: 0.15;
+      background-repeat: no-repeat;
+      background-size: cover;
+      border-radius: 0 0 12px 12px;
+      pointer-events: none;
+    }
+
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-[#f5f3ef] text-gray-800 font-sans antialiased min-h-screen flex flex-row overflow-x-hidden">
+<!-- BEGIN: LeftSidebar -->
+<aside class="w-64 bg-[#2f3136] text-gray-300 flex-shrink-0 flex flex-col justify-between relative shadow-xl z-20 min-h-screen">
+<div class="relative z-10">
+<!-- Portal Brand & Emblem -->
+<div class="p-5 border-b border-gray-700/60 flex items-start gap-3">
+<!-- National Emblem Icon / Representation -->
+<div class="w-10 h-11 flex-shrink-0 flex items-center justify-center bg-gray-700/40 rounded border border-gray-600/50 text-amber-300">
+<svg aria-label="National Emblem of India" class="w-7 h-7 fill-current" viewbox="0 0 24 24">
+<path d="M12 2L9 7h6l-3-5zm0 6c-2.5 0-4 1.5-4 4v3h8v-3c0-2.5-1.5-4-4-4zm-6 8h12v2H6v-2zm2 3h8v1H8v-1z"></path>
+<circle cx="12" cy="14" r="1.5"></circle>
+</svg>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] tracking-wider uppercase font-semibold text-gray-400 leading-tight">Govt. of India</span>
+<h1 class="text-xs font-bold text-gray-100 uppercase leading-snug">Ministry of Tribal Affairs</h1>
+<p class="text-[9px] text-amber-200/80 font-medium tracking-tight mt-0.5 leading-tight">SCHOLARSHIP &amp; FELLOWSHIP<br/>MANAGEMENT SYSTEM</p>
+</div>
+</div>
+<!-- Navigation Menu -->
+<nav aria-label="Main Navigation" class="mt-5 px-3 space-y-1.5">
+<!-- Dashboard Item -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-all" href="#">
+<i class="w-4 h-4 text-gray-400" data-lucide="layout-grid"></i>
+<span>Dashboard</span>
+</a>
+<!-- Application Verification (Active State: Terracotta pill) -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-semibold text-white bg-[#de5c36] shadow-md shadow-[#de5c36]/30 transition-all" href="#">
+<i class="w-4 h-4 text-white" data-lucide="file-check-2"></i>
+<span>Application Verification</span>
+</a>
+<!-- Scheme Configurator -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-all" href="#">
+<i class="w-4 h-4 text-gray-400" data-lucide="sliders"></i>
+<span>Scheme Configurator</span>
+</a>
+<!-- AI Scrutiny -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-all" href="#">
+<i class="w-4 h-4 text-gray-400" data-lucide="cpu"></i>
+<span>AI Scrutiny</span>
+</a>
+<!-- Grievance Redressal -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-all" href="#">
+<i class="w-4 h-4 text-gray-400" data-lucide="message-square"></i>
+<span>Grievance Redressal</span>
+</a>
+<!-- Audit Trail -->
+<a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-white/5 transition-all" href="#">
+<i class="w-4 h-4 text-gray-400" data-lucide="file-text"></i>
+<span>Audit Trail</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Tribal Art Geometric Decoration -->
+<div aria-hidden="true" class="relative w-full h-44 pointer-events-none opacity-20 overflow-hidden">
+<svg class="absolute -bottom-6 -left-6 w-56 h-56 text-white" fill="none" stroke="currentColor" viewbox="0 0 200 200">
+<!-- Warli concentric tribal radial ring -->
+<circle cx="100" cy="100" r="90" stroke-dasharray="4,4" stroke-width="1.5"></circle>
+<circle cx="100" cy="100" r="72" stroke-width="1"></circle>
+<circle cx="100" cy="100" r="54" stroke-dasharray="2,6" stroke-width="2"></circle>
+<circle cx="100" cy="100" r="36" stroke-width="1"></circle>
+<!-- Geometric triangles representing folk dancers -->
+<path d="M100 10 L104 26 L96 26 Z M100 190 L104 174 L96 174 Z M10 100 L26 96 L26 104 Z M190 100 L174 96 L174 104 Z" fill="currentColor"></path>
+<path d="M36 36 L48 44 L40 52 Z M164 164 L152 156 L160 148 Z M164 36 L156 48 L148 40 Z M36 164 L44 152 L52 160 Z" fill="currentColor"></path>
+<circle cx="100" cy="100" fill="currentColor" fill-opacity="0.2" r="14"></circle>
+</svg>
+</div>
+</aside>
+<!-- END: LeftSidebar -->
+<!-- BEGIN: MainContentArea -->
+<div class="flex-1 flex flex-col min-w-0">
+<!-- BEGIN: TopBarBanner -->
+<header class="relative bg-gradient-to-r from-[#e7d8c6] via-[#dfccb7] to-[#d6bc9f] px-8 py-3.5 border-b border-[#cfbfa9] shadow-sm flex items-center justify-between overflow-hidden">
+<!-- Background mountain ridge scenic silhoutte styling -->
+<div class="absolute inset-0 opacity-25 pointer-events-none mix-blend-multiply flex items-end">
+<svg class="w-full h-16 text-[#8a7258]" fill="currentColor" preserveaspectratio="none" viewbox="0 0 1200 120">
+<path d="M0 120 L0 80 Q150 40 320 70 T680 50 T1000 80 T1200 45 L1200 120 Z"></path>
+<path d="M0 120 L0 95 Q220 65 480 85 T900 65 T1200 90 L1200 120 Z" opacity="0.6"></path>
+</svg>
+</div>
+<!-- Tagline left/center -->
+<div class="relative z-10 flex items-center">
+<span class="font-serif italic text-amber-950 font-medium text-sm sm:text-base tracking-wide drop-shadow-sm">
+          "Empowering Tribal Communities Through Education"
+        </span>
+</div>
+<!-- Top Right Search, Notifications & Admin Profile -->
+<div class="relative z-10 flex items-center gap-4">
+<!-- Search Input -->
+<div class="relative w-64 md:w-72">
+<i class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" data-lucide="search"></i>
+<input class="w-full pl-9 pr-3 py-1.5 text-xs bg-white/90 backdrop-blur-sm border border-stone-300 rounded-full text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-amber-700 focus:bg-white transition" placeholder="Search applications, student ID, scheme..." type="text"/>
+</div>
+<!-- Notification Bell with badge -->
+<button aria-label="Notifications" class="relative p-2 text-stone-700 hover:text-stone-900 bg-white/60 hover:bg-white/90 rounded-full transition shadow-sm">
+<i class="w-4 h-4" data-lucide="bell"></i>
+<span class="absolute top-0.5 right-0.5 bg-red-600 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">
+            5
+          </span>
+</button>
+<!-- Admin Profile Pill -->
+<div class="flex items-center gap-2.5 pl-2 border-l border-stone-400/50">
+<div class="w-8 h-8 rounded-full bg-[#1e293b] text-white flex items-center justify-center text-xs font-semibold shadow">
+            AO
+          </div>
+<div class="text-left leading-tight hidden sm:block">
+<p class="text-xs font-bold text-stone-900">Admin Officer</p>
+<p class="text-[10px] text-stone-600">Ministry of Tribal Affairs</p>
+</div>
+</div>
+</div>
+</header>
+<!-- END: TopBarBanner -->
+<!-- BEGIN: DashboardBody -->
+<main class="p-6 md:p-7 space-y-6">
+<!-- BEGIN: WelcomeHeaderRow -->
+<section class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div>
+<h2 class="text-xl md:text-2xl font-bold text-gray-900 tracking-tight">Welcome, Admin Officer</h2>
+<p class="text-xs text-gray-500 mt-0.5">Here's what's happening with the scholarship &amp; fellowship applications today.</p>
+</div>
+<!-- Date Range Filter Pill -->
+<div class="flex items-center gap-2 self-start sm:self-auto bg-white border border-gray-200 px-3.5 py-1.5 rounded-lg shadow-sm text-xs font-medium text-gray-700 cursor-pointer hover:border-gray-300">
+<i class="w-3.5 h-3.5 text-gray-500" data-lucide="calendar"></i>
+<span>01 Apr 2025 - 30 Jun 2026</span>
+<i class="w-3.5 h-3.5 text-gray-400 ml-1" data-lucide="chevron-down"></i>
+</div>
+</section>
+<!-- END: WelcomeHeaderRow -->
+<!-- BEGIN: KPICardsRow (5 Cards) -->
+<section aria-label="Key Performance Indicators" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+<!-- Card 1: Total Applications -->
+<div class="relative bg-white rounded-xl p-4 border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-[#105a8b]/10 flex items-center justify-center text-[#105a8b]">
+<i class="w-5 h-5 text-[#105a8b]" data-lucide="files"></i>
+</div>
+<span class="inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+              ↑ 12%
+            </span>
+</div>
+<div class="mt-3">
+<p class="text-[11px] font-medium text-gray-500">Total Applications Received</p>
+<div class="flex items-baseline justify-between mt-1">
+<h3 class="text-2xl font-bold text-gray-900">8,410</h3>
+<span class="text-[10px] text-gray-400">vs. last month</span>
+</div>
+</div>
+<!-- Decorative bottom gradient wave line -->
+<div class="card-wave bg-gradient-to-r from-blue-300 via-sky-200 to-transparent"></div>
+</div>
+<!-- Card 2: Deficiencies Flagged -->
+<div class="relative bg-white rounded-xl p-4 border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+<i class="w-5 h-5 text-rose-600" data-lucide="alert-triangle"></i>
+</div>
+<span class="inline-flex items-center text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded">
+              ↑ 8%
+            </span>
+</div>
+<div class="mt-3">
+<p class="text-[11px] font-medium text-gray-500">Deficiencies Flagged</p>
+<div class="flex items-baseline justify-between mt-1">
+<h3 class="text-2xl font-bold text-rose-700">412</h3>
+<span class="text-[10px] text-gray-400">vs. last month</span>
+</div>
+</div>
+<div class="card-wave bg-gradient-to-r from-rose-300 via-orange-200 to-transparent"></div>
+</div>
+<!-- Card 3: Pending Cross Scheme Check -->
+<div class="relative bg-white rounded-xl p-4 border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+<i class="w-5 h-5 text-amber-600" data-lucide="clock"></i>
+</div>
+<span class="inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+              ↓ 15%
+            </span>
+</div>
+<div class="mt-3">
+<p class="text-[11px] font-medium text-gray-500">Pending Cross Scheme Check</p>
+<div class="flex items-baseline justify-between mt-1">
+<h3 class="text-2xl font-bold text-gray-900">89</h3>
+<span class="text-[10px] text-gray-400">vs. last month</span>
+</div>
+</div>
+<div class="card-wave bg-gradient-to-r from-amber-300 via-yellow-200 to-transparent"></div>
+</div>
+<!-- Card 4: Pending Process Rate -->
+<div class="relative bg-white rounded-xl p-4 border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+<i class="w-5 h-5 text-slate-700" data-lucide="history"></i>
+</div>
+<span class="inline-flex items-center text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
+              ↓ 10%
+            </span>
+</div>
+<div class="mt-3">
+<p class="text-[11px] font-medium text-gray-500">Pending Process Rate</p>
+<div class="flex items-baseline justify-between mt-1">
+<h3 class="text-2xl font-bold text-gray-900">69%</h3>
+<span class="text-[10px] text-gray-400">vs. last month</span>
+</div>
+</div>
+<div class="card-wave bg-gradient-to-r from-slate-300 via-cyan-100 to-transparent"></div>
+</div>
+<!-- Card 5: Selected & Approved -->
+<div class="relative bg-white rounded-xl p-4 border border-gray-100 shadow-sm overflow-hidden flex flex-col justify-between">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+<i class="w-5 h-5 text-emerald-700" data-lucide="user-check"></i>
+</div>
+<span class="inline-flex items-center text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+              ↑ 18%
+            </span>
+</div>
+<div class="mt-3">
+<p class="text-[11px] font-medium text-gray-500">Selected &amp; Approved</p>
+<div class="flex items-baseline justify-between mt-1">
+<h3 class="text-2xl font-bold text-emerald-800">5,873</h3>
+<span class="text-[10px] text-gray-400">vs. last month</span>
+</div>
+</div>
+<div class="card-wave bg-gradient-to-r from-emerald-300 via-teal-200 to-transparent"></div>
+</div>
+</section>
+<!-- END: KPICardsRow -->
+<!-- BEGIN: MiddleSectionGrid -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+<!-- BEGIN: AIScrutinyCaseReview (8 cols) -->
+<div class="lg:col-span-8 bg-white rounded-xl p-5 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+<div>
+<!-- Card Header with Navigation Tabs -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 gap-2">
+<div>
+<h3 class="text-sm font-bold text-gray-900 tracking-tight">AI Scrutiny Case Review</h3>
+<p class="text-[11px] text-gray-500">Document verification, OCR &amp; AI based analysis</p>
+</div>
+<div class="flex items-center gap-4">
+<!-- Inner Tabs -->
+<div class="flex items-center gap-4 text-xs font-medium">
+<button class="text-terracotta border-b-2 border-terracotta pb-1 font-semibold">Recent Cases</button>
+<button class="text-gray-500 hover:text-gray-800 pb-1">Pending Review</button>
+<button class="text-gray-500 hover:text-gray-800 pb-1">Conflicts</button>
+</div>
+<a class="text-xs font-semibold text-[#105a8b] hover:underline flex items-center gap-0.5" href="#">
+                  View All <i class="w-3 h-3" data-lucide="arrow-right"></i>
+</a>
+</div>
+</div>
+<!-- Content Split: Table on Left, OCR Document Preview on Right -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-4 mt-4">
+<!-- Review Table (8 cols on XL) -->
+<div class="xl:col-span-8 overflow-x-auto">
+<table class="w-full text-left text-xs">
+<thead>
+<tr class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+<th class="pb-2">Application ID</th>
+<th class="pb-2">Student Name</th>
+<th class="pb-2">Scheme</th>
+<th class="pb-2">Status</th>
+<th class="pb-2 text-center">AI Confidence</th>
+<th class="pb-2 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-50 font-normal">
+<!-- Row 1 -->
+<tr class="hover:bg-gray-50/70 transition">
+<td class="py-2.5 font-medium text-gray-800 text-[11px]">MT/2026/15432</td>
+<td class="py-2.5 text-gray-700">Anita Kumari</td>
+<td class="py-2.5 text-gray-500 text-[11px]">Post Matric</td>
+<td class="py-2.5">
+<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Verified
+                        </span>
+</td>
+<td class="py-2.5 text-center font-medium text-gray-700">89%</td>
+<td class="py-2.5 text-right">
+<button class="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">View</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-gray-50/70 transition">
+<td class="py-2.5 font-medium text-gray-800 text-[11px]">MT/2026/15431</td>
+<td class="py-2.5 text-gray-700">Ramesh Tudu</td>
+<td class="py-2.5 text-gray-500 text-[11px]">Pre Matric</td>
+<td class="py-2.5">
+<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                          AI Scrutiny
+                        </span>
+</td>
+<td class="py-2.5 text-center font-medium text-gray-700">85%</td>
+<td class="py-2.5 text-right">
+<button class="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">View</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-gray-50/70 transition">
+<td class="py-2.5 font-medium text-gray-800 text-[11px]">MT/2026/15430</td>
+<td class="py-2.5 text-gray-700">Sita Bhumi</td>
+<td class="py-2.5 text-gray-500 text-[11px]">Post Matric</td>
+<td class="py-2.5">
+<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-50 text-rose-700 border border-rose-200">
+                          Deficiency
+                        </span>
+</td>
+<td class="py-2.5 text-center font-medium text-gray-700">62%</td>
+<td class="py-2.5 text-right">
+<button class="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">View</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-gray-50/70 transition">
+<td class="py-2.5 font-medium text-gray-800 text-[11px]">MT/2026/15429</td>
+<td class="py-2.5 text-gray-700">Karan Oraon</td>
+<td class="py-2.5 text-gray-500 text-[11px]">Top Class</td>
+<td class="py-2.5">
+<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Approved
+                        </span>
+</td>
+<td class="py-2.5 text-center font-medium text-gray-700">94%</td>
+<td class="py-2.5 text-right">
+<button class="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">View</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-gray-50/70 transition">
+<td class="py-2.5 font-medium text-gray-800 text-[11px]">MT/2026/15428</td>
+<td class="py-2.5 text-gray-700">Pooja Murmu</td>
+<td class="py-2.5 text-gray-500 text-[11px]">Post Matric</td>
+<td class="py-2.5">
+<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                          Pending
+                        </span>
+</td>
+<td class="py-2.5 text-center font-medium text-gray-700">71%</td>
+<td class="py-2.5 text-right">
+<button class="px-2.5 py-1 text-[11px] font-medium bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200">View</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- OCR Document Preview Panel (4 cols on XL) -->
+<div class="xl:col-span-4 bg-[#fbfbfa] border border-gray-200 rounded-lg p-3 flex flex-col justify-between">
+<div>
+<!-- Document Thumbnail Mockup -->
+<div class="bg-white border border-gray-200 rounded p-2 shadow-xs mb-3">
+<div class="flex items-center justify-between pb-1 mb-1 border-b border-gray-100">
+<div class="w-4 h-4 bg-gray-200 rounded-full flex items-center justify-center text-[7px] text-gray-600">🏛️</div>
+<span class="text-[8px] text-gray-400 uppercase tracking-tight">Caste Certificate</span>
+<div class="w-3 h-3 bg-gray-100 rounded"></div>
+</div>
+<!-- Mock lines representing document text -->
+<div class="space-y-1 py-1">
+<div class="h-1 bg-gray-200 rounded w-full"></div>
+<div class="h-1 bg-gray-200 rounded w-5/6"></div>
+<div class="h-1 bg-gray-200 rounded w-4/6"></div>
+<div class="h-1 bg-gray-100 rounded w-full"></div>
+<div class="h-1 bg-gray-200 rounded w-3/4"></div>
+</div>
+<div class="flex justify-between items-end mt-2 pt-1 border-t border-gray-100">
+<div class="h-2 w-10 bg-gray-200 rounded"></div>
+<div class="w-4 h-4 border border-dashed border-gray-400 flex items-center justify-center text-[6px] text-gray-400">QR</div>
+</div>
+</div>
+<!-- OCR Analysis Checklist -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between">
+<span class="text-[11px] font-bold text-gray-800">OCR Analysis</span>
+<span class="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded">
+<i class="w-2.5 h-2.5" data-lucide="check"></i> Match
+                      </span>
+</div>
+<ul class="text-[10px] space-y-1 text-gray-600 mt-1">
+<li class="flex items-center gap-1.5">
+<i class="w-3 h-3 text-emerald-600" data-lucide="check-circle-2"></i>
+<span>Certificate Authenticity</span>
+</li>
+<li class="flex items-center gap-1.5">
+<i class="w-3 h-3 text-emerald-600" data-lucide="check-circle-2"></i>
+<span>Data Consistency</span>
+</li>
+<li class="flex items-center gap-1.5">
+<i class="w-3 h-3 text-emerald-600" data-lucide="shield-check"></i>
+<span>No Tampering Detected</span>
+</li>
+</ul>
+</div>
+</div>
+<button class="w-full mt-3 py-1.5 px-3 bg-[#1e293b] hover:bg-[#0f172a] text-white text-[11px] font-semibold rounded shadow-sm transition">
+                  View Full Report
+                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- END: AIScrutinyCaseReview -->
+<!-- BEGIN: RightColumnCharts (4 cols) -->
+<div class="lg:col-span-4 space-y-4">
+<!-- Chart 1: Application Rate -->
+<div class="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5">
+<i class="w-4 h-4 text-gray-700" data-lucide="bar-chart-2"></i>
+<h3 class="text-xs font-bold text-gray-900">Application Rate</h3>
+</div>
+<a class="text-[11px] font-semibold text-[#105a8b] hover:underline flex items-center gap-0.5" href="#">
+                View Details <i class="w-3 h-3" data-lucide="arrow-right"></i>
+</a>
+</div>
+<!-- Legend -->
+<div class="flex items-center gap-3 text-[10px] text-gray-500 mb-3">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#1e293b]"></span> Received</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#de8b3b]"></span> Verified</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#2e684d]"></span> Approved</span>
+</div>
+<!-- CSS Bar Chart Representation -->
+<div class="h-28 flex items-end justify-between gap-1.5 pt-2 border-b border-gray-200">
+<!-- Mon -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[50%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[35%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[20%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Mon</span>
+</div>
+<!-- Tue -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[65%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[50%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[35%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Tue</span>
+</div>
+<!-- Wed -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[85%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[65%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[45%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Wed</span>
+</div>
+<!-- Thu -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[75%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[60%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[55%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Thu</span>
+</div>
+<!-- Fri -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[95%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[75%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[60%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Fri</span>
+</div>
+<!-- Sat -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[90%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[80%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[68%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Sat</span>
+</div>
+<!-- Sun -->
+<div class="flex-1 flex flex-col items-center gap-0.5 h-full justify-end">
+<div class="w-full flex items-end justify-center gap-0.5 h-20">
+<div class="w-1.5 bg-[#1e293b] rounded-t-xs h-[100%]"></div>
+<div class="w-1.5 bg-[#de8b3b] rounded-t-xs h-[85%]"></div>
+<div class="w-1.5 bg-[#2e684d] rounded-t-xs h-[72%]"></div>
+</div>
+<span class="text-[9px] text-gray-400">Sun</span>
+</div>
+</div>
+</div>
+<!-- Chart 2: Weekly Processing Rate -->
+<div class="bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5">
+<i class="w-4 h-4 text-gray-700" data-lucide="trending-up"></i>
+<h3 class="text-xs font-bold text-gray-900">Weekly Processing Rate</h3>
+</div>
+<a class="text-[11px] font-semibold text-[#105a8b] hover:underline flex items-center gap-0.5" href="#">
+                View Details <i class="w-3 h-3" data-lucide="arrow-right"></i>
+</a>
+</div>
+<!-- Legend -->
+<div class="flex items-center gap-3 text-[10px] text-gray-500 mb-2">
+<span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-[#105a8b]"></span> Overall</span>
+<span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-[#de8b3b]"></span> AI Scrutiny</span>
+</div>
+<!-- SVG Line Chart Mockup -->
+<div class="relative h-24 w-full">
+<svg class="w-full h-full" viewbox="0 0 260 80">
+<!-- Grid Lines -->
+<line stroke="#f1f5f9" stroke-width="1" x1="0" x2="260" y1="10" y2="10"></line>
+<line stroke="#f1f5f9" stroke-width="1" x1="0" x2="260" y1="35" y2="35"></line>
+<line stroke="#f1f5f9" stroke-width="1" x1="0" x2="260" y1="60" y2="60"></line>
+<!-- Line 1: Overall (Navy/Blue) -->
+<polyline fill="none" points="15,55 50,45 85,30 125,40 165,48 205,32 245,22" stroke="#105a8b" stroke-width="2"></polyline>
+<circle cx="15" cy="55" fill="#105a8b" r="2.5"></circle>
+<circle cx="50" cy="45" fill="#105a8b" r="2.5"></circle>
+<circle cx="85" cy="30" fill="#105a8b" r="2.5"></circle>
+<circle cx="125" cy="40" fill="#105a8b" r="2.5"></circle>
+<circle cx="165" cy="48" fill="#105a8b" r="2.5"></circle>
+<circle cx="205" cy="32" fill="#105a8b" r="2.5"></circle>
+<circle cx="245" cy="22" fill="#105a8b" r="2.5"></circle>
+<!-- Line 2: AI Scrutiny (Terracotta/Orange) -->
+<polyline fill="none" points="15,65 50,58 85,48 125,52 165,58 205,42 245,35" stroke="#de8b3b" stroke-dasharray="3,3" stroke-width="2"></polyline>
+<circle cx="15" cy="65" fill="#de8b3b" r="2"></circle>
+<circle cx="50" cy="58" fill="#de8b3b" r="2"></circle>
+<circle cx="85" cy="48" fill="#de8b3b" r="2"></circle>
+<circle cx="125" cy="52" fill="#de8b3b" r="2"></circle>
+<circle cx="165" cy="58" fill="#de8b3b" r="2"></circle>
+<circle cx="205" cy="42" fill="#de8b3b" r="2"></circle>
+<circle cx="245" cy="35" fill="#de8b3b" r="2"></circle>
+</svg>
+<!-- Days row under chart -->
+<div class="flex justify-between text-[9px] text-gray-400 px-1 -mt-1">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+</div>
+</div>
+<!-- END: RightColumnCharts -->
+</section>
+<!-- END: MiddleSectionGrid -->
+<!-- BEGIN: BottomSectionGrid (Workflow, Recent Apps, Audit) -->
+<section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+<!-- BEGIN: ApplicationWorkflow (5 cols) -->
+<div class="lg:col-span-5 bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between pb-2 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<i class="w-4 h-4 text-gray-700" data-lucide="git-merge"></i>
+<h3 class="text-xs font-bold text-gray-900">Application Workflow</h3>
+</div>
+<a class="text-[11px] font-semibold text-[#105a8b] hover:underline flex items-center gap-0.5" href="#">
+              View Details <i class="w-3 h-3" data-lucide="arrow-right"></i>
+</a>
+</div>
+<!-- Step Process Pipeline -->
+<div class="py-5 px-1 overflow-x-auto">
+<div class="flex items-center justify-between min-w-[340px] text-center">
+<!-- Step 1 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center text-xs shadow-sm">
+<i class="w-3.5 h-3.5" data-lucide="file-text"></i>
+</div>
+<span class="text-[10px] font-medium text-gray-700 mt-1.5">1. Applied</span>
+<span class="text-xs font-bold text-gray-900">8,410</span>
+</div>
+<div class="w-4 h-0.5 bg-gray-300 -mt-5"></div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-[#105a8b] text-white flex items-center justify-center text-xs shadow-sm">
+<i class="w-3.5 h-3.5" data-lucide="search"></i>
+</div>
+<span class="text-[10px] font-medium text-gray-700 mt-1.5">2. Verification</span>
+<span class="text-xs font-bold text-gray-900">7,982</span>
+</div>
+<div class="w-4 h-0.5 bg-gray-300 -mt-5"></div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs shadow-sm">
+<i class="w-3.5 h-3.5" data-lucide="cpu"></i>
+</div>
+<span class="text-[10px] font-medium text-gray-700 mt-1.5">3. AI Scrutiny</span>
+<span class="text-xs font-bold text-gray-900">6,521</span>
+</div>
+<div class="w-4 h-0.5 bg-gray-300 -mt-5"></div>
+<!-- Step 4 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs shadow-sm">
+<i class="w-3.5 h-3.5" data-lucide="alert-triangle"></i>
+</div>
+<span class="text-[10px] font-medium text-gray-700 mt-1.5">4. Deficiency</span>
+<span class="text-xs font-bold text-rose-600">412</span>
+</div>
+<div class="w-4 h-0.5 bg-gray-300 -mt-5"></div>
+<!-- Step 5 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center text-xs shadow-sm">
+<i class="w-3.5 h-3.5" data-lucide="check-square"></i>
+</div>
+<span class="text-[10px] font-medium text-gray-700 mt-1.5">5. Approved</span>
+<span class="text-xs font-bold text-gray-900">5,873</span>
+</div>
+<div class="w-4 h-0.5 bg-gray-300 -mt-5"></div>
+<!-- Step 6 -->
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-amber-700 text-white flex items-center justify-center text-xs shadow-sm">
+<i class="w-3.5 h-3.5" data-lucide="coins"></i>
+</div>
+<span class="text-[10px] font-medium text-gray-700 mt-1.5">6. Disbursed</span>
+<span class="text-xs font-bold text-gray-900">4,902</span>
+</div>
+</div>
+</div>
+</div>
+<!-- END: ApplicationWorkflow -->
+<!-- BEGIN: RecentApplicationsMiniTable (4 cols) -->
+<div class="lg:col-span-4 bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between pb-2 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<i class="w-4 h-4 text-gray-700" data-lucide="clock-3"></i>
+<h3 class="text-xs font-bold text-gray-900">Recent Applications</h3>
+</div>
+<a class="text-[11px] font-semibold text-[#105a8b] hover:underline flex items-center gap-0.5" href="#">
+                View All <i class="w-3 h-3" data-lucide="arrow-right"></i>
+</a>
+</div>
+<!-- Mini List -->
+<div class="overflow-x-auto mt-2">
+<table class="w-full text-left text-[11px]">
+<thead>
+<tr class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+<th class="pb-1.5">App ID</th>
+<th class="pb-1.5">Applicant Name</th>
+<th class="pb-1.5">Scheme</th>
+<th class="pb-1.5 text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-50">
+<tr>
+<td class="py-1.5 font-medium text-gray-800 text-[10px]">MT/2026/15432</td>
+<td class="py-1.5 text-gray-700 text-[10px]">Anita Kumari</td>
+<td class="py-1.5 text-gray-500 text-[10px]">Post Matric</td>
+<td class="py-1.5 text-right">
+<span class="px-1.5 py-0.5 text-[9px] rounded font-medium bg-emerald-50 text-emerald-700">Verified</span>
+</td>
+</tr>
+<tr>
+<td class="py-1.5 font-medium text-gray-800 text-[10px]">MT/2026/15431</td>
+<td class="py-1.5 text-gray-700 text-[10px]">Ramesh Tudu</td>
+<td class="py-1.5 text-gray-500 text-[10px]">Pre Matric</td>
+<td class="py-1.5 text-right">
+<span class="px-1.5 py-0.5 text-[9px] rounded font-medium bg-rose-50 text-rose-700">Deficiency</span>
+</td>
+</tr>
+<tr>
+<td class="py-1.5 font-medium text-gray-800 text-[10px]">MT/2026/15430</td>
+<td class="py-1.5 text-gray-700 text-[10px]">Sita Bhumi</td>
+<td class="py-1.5 text-gray-500 text-[10px]">Post Matric</td>
+<td class="py-1.5 text-right">
+<span class="px-1.5 py-0.5 text-[9px] rounded font-medium bg-rose-50 text-rose-700">Deficiency</span>
+</td>
+</tr>
+<tr>
+<td class="py-1.5 font-medium text-gray-800 text-[10px]">MT/2026/15429</td>
+<td class="py-1.5 text-gray-700 text-[10px]">Birsa Munda</td>
+<td class="py-1.5 text-gray-500 text-[10px]">Top Class</td>
+<td class="py-1.5 text-right">
+<span class="px-1.5 py-0.5 text-[9px] rounded font-medium bg-emerald-50 text-emerald-700">Approved</span>
+</td>
+</tr>
+<tr>
+<td class="py-1.5 font-medium text-gray-800 text-[10px]">MT/2026/15428</td>
+<td class="py-1.5 text-gray-700 text-[10px]">Pooja Murmu</td>
+<td class="py-1.5 text-gray-500 text-[10px]">Post Matric</td>
+<td class="py-1.5 text-right">
+<span class="px-1.5 py-0.5 text-[9px] rounded font-medium bg-blue-50 text-blue-700">Pending</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- END: RecentApplicationsMiniTable -->
+<!-- BEGIN: AuditActivityTimeline (3 cols) -->
+<div class="lg:col-span-3 bg-white rounded-xl p-4 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between pb-2 border-b border-gray-100">
+<div class="flex items-center gap-2">
+<i class="w-4 h-4 text-gray-700" data-lucide="shield"></i>
+<h3 class="text-xs font-bold text-gray-900">Audit Activity</h3>
+</div>
+<a class="text-[11px] font-semibold text-[#105a8b] hover:underline flex items-center gap-0.5" href="#">
+                View All <i class="w-3 h-3" data-lucide="arrow-right"></i>
+</a>
+</div>
+<!-- Activity Items -->
+<div class="space-y-3 mt-3 relative pl-3 border-l border-gray-200 text-xs">
+<div class="relative">
+<div class="w-2 h-2 rounded-full bg-rose-500 absolute -left-[17px] top-1"></div>
+<p class="text-[11px] font-medium text-gray-800 leading-tight">Application MT/2026/15431 flagged for deficiency</p>
+<span class="text-[9px] text-gray-400">10 mins ago</span>
+</div>
+<div class="relative">
+<div class="w-2 h-2 rounded-full bg-blue-500 absolute -left-[17px] top-1"></div>
+<p class="text-[11px] font-medium text-gray-800 leading-tight">AI verification completed for MT/2026/15430</p>
+<span class="text-[9px] text-gray-400">22 mins ago</span>
+</div>
+<div class="relative">
+<div class="w-2 h-2 rounded-full bg-amber-500 absolute -left-[17px] top-1"></div>
+<p class="text-[11px] font-medium text-gray-800 leading-tight">Scheme updated - Post Matric Scholarship</p>
+<span class="text-[9px] text-gray-400">1 hour ago</span>
+</div>
+<div class="relative">
+<div class="w-2 h-2 rounded-full bg-slate-500 absolute -left-[17px] top-1"></div>
+<p class="text-[11px] font-medium text-gray-800 leading-tight">User Login - Admin Officer</p>
+<span class="text-[9px] text-gray-400">2 hours ago</span>
+</div>
+<div class="relative">
+<div class="w-2 h-2 rounded-full bg-emerald-500 absolute -left-[17px] top-1"></div>
+<p class="text-[11px] font-medium text-gray-800 leading-tight">Application MT/2026/15428 approved</p>
+<span class="text-[9px] text-gray-400">3 hours ago</span>
+</div>
+</div>
+</div>
+</div>
+<!-- END: AuditActivityTimeline -->
+</section>
+<!-- END: BottomSectionGrid -->
+<!-- BEGIN: FolkArtFooterBanner -->
+<footer class="relative bg-gradient-to-r from-[#eddcd0] via-[#e5cfbe] to-[#dfc4b0] rounded-xl p-4 border border-[#d6ba9f] shadow-sm flex flex-col md:flex-row items-center justify-between overflow-hidden gap-4">
+<!-- Left Side: Motto & Purpose -->
+<div class="flex items-center gap-3 z-10">
+<div class="w-10 h-10 rounded-full bg-terracotta text-white flex items-center justify-center flex-shrink-0 shadow-md">
+<i class="w-5 h-5" data-lucide="award"></i>
+</div>
+<div>
+<div class="flex items-center gap-2 text-xs font-bold text-amber-950 uppercase tracking-wide">
+<span>Transparency</span>
+<span>•</span>
+<span>Accuracy</span>
+<span>•</span>
+<span>Empowerment</span>
+</div>
+<p class="text-[11px] text-stone-700 font-medium mt-0.5">
+              Technology-driven scholarship &amp; fellowship management for a stronger tribal India
+            </p>
+</div>
+</div>
+<!-- Right Side: Warli Tribal Silhouette Artwork -->
+<div class="relative h-12 w-64 flex-shrink-0 opacity-70 z-10">
+<svg class="w-full h-full text-stone-800 fill-current" viewbox="0 0 320 60">
+<!-- Warli Dancing Figures & Nature Silhouette -->
+<!-- Tree -->
+<path d="M290 55 L292 25 L285 20 L292 25 L300 18 L292 25 L294 55 Z" stroke="currentColor" stroke-width="1.5"></path>
+<circle cx="292" cy="16" r="3"></circle>
+<!-- Figures holding hands -->
+<!-- Figure 1 -->
+<circle cx="230" cy="22" r="3"></circle>
+<path d="M230 25 L225 38 L235 38 Z"></path>
+<path d="M230 45 L225 38 L235 38 Z"></path>
+<path d="M225 38 L220 30 M235 38 L240 30 M226 45 L224 55 M234 45 L236 55"></path>
+<!-- Figure 2 -->
+<circle cx="245" cy="24" r="2.5"></circle>
+<path d="M245 26.5 L241 38 L249 38 Z"></path>
+<path d="M245 45 L241 38 L249 38 Z"></path>
+<path d="M241 38 L240 30 M249 38 L254 30 M242 45 L240 55 M248 45 L250 55"></path>
+<!-- Figure 3 (Child) -->
+<circle cx="258" cy="28" r="2"></circle>
+<path d="M258 30 L255 39 L261 39 Z"></path>
+<path d="M258 45 L255 39 L261 39 Z"></path>
+<path d="M255 39 L254 30 M261 39 L265 30 M256 45 L255 55 M260 45 L261 55"></path>
+<!-- Figure 4 -->
+<circle cx="270" cy="23" r="3"></circle>
+<path d="M270 26 L265 38 L275 38 Z"></path>
+<path d="M270 45 L265 38 L275 38 Z"></path>
+<path d="M265 38 L265 30 M275 38 L278 30 M266 45 L265 55 M274 45 L275 55"></path>
+<!-- Ground Line -->
+<line stroke="currentColor" stroke-width="1.5" x1="210" x2="310" y1="55" y2="55"></line>
+</svg>
+</div>
+</footer>
+<!-- END: FolkArtFooterBanner -->
+</main>
+<!-- END: DashboardBody -->
+</div>
+<!-- END: MainContentArea -->
+<!-- Icon Initialization Script -->
+<script data-purpose="lucide-icons-init">
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body></html>
