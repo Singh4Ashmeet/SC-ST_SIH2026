@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/scholarship_db"
+    DATABASE_URL: str = "postgresql://postgres.aosgyxpctnrxorxgfgoi:9NqlFZAcgMpwgCEB@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
 
     # CORS
     FRONTEND_ORIGIN: str = "http://localhost:3000"

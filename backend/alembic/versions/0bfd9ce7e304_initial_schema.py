@@ -86,6 +86,7 @@ def upgrade() -> None:
     sa.Column('doc_type', sa.String(length=100), nullable=False),
     sa.Column('storage_key', sa.String(length=500), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'VERIFIED', 'DEFICIENT', name='document_status'), server_default='PENDING', nullable=False),
+    sa.Column('content_type', sa.String(length=100), nullable=True, server_default='application/octet-stream'),
     sa.Column('extracted_fields', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('deficiency_reasons', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     sa.Column('uploaded_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
