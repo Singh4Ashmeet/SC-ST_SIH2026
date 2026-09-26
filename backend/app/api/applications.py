@@ -451,79 +451,96 @@ def get_case_file(
             pass
 
     # 3. Cross-Scheme Conflict
-    conflict = db.query(Conflict).filter(
-        (Conflict.primary_application_id == application_id) | 
-        (Conflict.conflicting_application_id == application_id)
-    ).first()
     conflict_data = None
-    if conflict:
-        conflict_data = {
-            "id": str(conflict.id),
-            "status": conflict.status.value if hasattr(conflict.status, "value") else str(conflict.status),
-            "match_confidence": conflict.match_confidence,
-            "matching_signals": conflict.matching_signals,
-            "resolution_notes": conflict.resolution_notes,
-        }
+    try:
+        conflict = db.query(Conflict).filter(
+            (Conflict.application_id == application_id) | 
+            (Conflict.conflicting_application_id == application_id)
+        ).first()
+        if conflict:
+            conflict_data = {
+                "id": str(conflict.id),
+                "status": conflict.status.value if hasattr(conflict.status, "value") else str(conflict.status),
+                "match_confidence": getattr(conflict, "confidence", 0.0),
+                "matching_signals": getattr(conflict, "matching_signals", {}),
+                "resolution_notes": getattr(conflict, "resolution_remarks", None) or getattr(conflict, "explanation", None),
+            }
+    except Exception:
+        conflict_data = None
 
     # 4. Merit Evaluation
-    merit = db.query(MeritEvaluation).filter(MeritEvaluation.application_id == application_id).first()
     merit_data = None
-    if merit:
-        merit_data = {
-            "id": str(merit.id),
-            "academic_score": merit.academic_score,
-            "research_score": merit.research_score,
-            "experience_score": merit.experience_score,
-            "preference_score": merit.preference_score,
-            "total_score": merit.total_score,
-            "rank": merit.rank,
-            "decision": merit.decision.value if hasattr(merit.decision, "value") else str(merit.decision),
-            "committee_remarks": merit.committee_remarks,
-        }
+    try:
+        merit = db.query(MeritEvaluation).filter(MeritEvaluation.application_id == application_id).first()
+        if merit:
+            score_bd = getattr(merit, "score_breakdown", {}) or {}
+            pref_factors = getattr(merit, "preference_factors", {}) or {}
+            merit_data = {
+                "id": str(merit.id),
+                "academic_score": score_bd.get("academic_score", score_bd.get("academic", 0.0)),
+                "research_score": score_bd.get("research_score", score_bd.get("research", 0.0)),
+                "experience_score": score_bd.get("experience_score", score_bd.get("experience", 0.0)),
+                "preference_score": pref_factors.get("total_bonus", score_bd.get("preference_score", 0.0)),
+                "total_score": getattr(merit, "total_score", 0.0),
+                "rank": getattr(merit, "rank", None),
+                "decision": "RANKED" if merit.rank else "EVALUATED",
+                "committee_remarks": None,
+            }
+    except Exception:
+        merit_data = None
 
     # 5. Institute Verification
-    inst_ver = db.query(InstituteVerification).filter(InstituteVerification.application_id == application_id).first()
     inst_data = None
-    if inst_ver:
-        inst_data = {
-            "id": str(inst_ver.id),
-            "institution_name": inst_ver.institution_name,
-            "institution_code": inst_ver.institution_code,
-            "status": inst_ver.status.value if hasattr(inst_ver.status, "value") else str(inst_ver.status),
-            "remarks": inst_ver.remarks,
-            "query_details": inst_ver.query_details,
-            "verified_at": inst_ver.verified_at.isoformat() if inst_ver.verified_at else None,
-        }
+    try:
+        inst_ver = db.query(InstituteVerification).filter(InstituteVerification.application_id == application_id).first()
+        if inst_ver:
+            inst_data = {
+                "id": str(inst_ver.id),
+                "institution_name": getattr(inst_ver, "institution_name", ""),
+                "institution_code": getattr(inst_ver, "institution_code", None),
+                "status": inst_ver.status.value if hasattr(inst_ver.status, "value") else str(inst_ver.status),
+                "remarks": getattr(inst_ver, "remarks", None),
+                "query_details": getattr(inst_ver, "query_details", None),
+                "verified_at": inst_ver.verified_at.isoformat() if getattr(inst_ver, "verified_at", None) else None,
+            }
+    except Exception:
+        inst_data = None
 
     # 6. Grievances
-    grievances = db.query(Grievance).filter(Grievance.application_id == application_id).all()
-    grievance_list = [
-        {
-            "id": str(g.id),
-            "grievance_number": g.grievance_number,
-            "category": g.category.value if hasattr(g.category, "value") else str(g.category),
-            "subject": g.subject,
-            "status": g.status.value if hasattr(g.status, "value") else str(g.status),
-            "priority": g.priority.value if hasattr(g.priority, "value") else str(g.priority),
-            "created_at": g.created_at.isoformat() if g.created_at else None,
-        }
-        for g in grievances
-    ]
+    grievance_list = []
+    try:
+        grievances = db.query(Grievance).filter(Grievance.application_id == application_id).all()
+        for g in grievances:
+            grievance_list.append({
+                "id": str(g.id),
+                "grievance_number": getattr(g, "grievance_number", f"GRV-{str(g.id)[:8].upper()}"),
+                "category": g.category.value if hasattr(g.category, "value") else str(getattr(g, "category", "general")),
+                "subject": getattr(g, "subject", getattr(g, "description", "")[:50]),
+                "status": g.status.value if hasattr(g.status, "value") else str(g.status),
+                "priority": g.priority.value if hasattr(g.priority, "value") else str(g.priority),
+                "created_at": g.created_at.isoformat() if getattr(g, "created_at", None) else None,
+            })
+    except Exception:
+        grievance_list = []
 
     # 7. Audit Trail Timeline
-    audit_logs = db.query(AuditLog).filter(AuditLog.application_id == application_id).order_by(AuditLog.created_at.asc()).all()
-    audit_list = [
-        {
-            "id": str(a.id),
-            "action": a.action,
-            "from_state": a.from_state,
-            "to_state": a.to_state,
-            "actor_user_id": str(a.actor_user_id) if a.actor_user_id else None,
-            "details": a.details,
-            "created_at": a.created_at.isoformat() if a.created_at else None,
-        }
-        for a in audit_logs
-    ]
+    audit_list = []
+    try:
+        audit_logs = db.query(AuditLog).filter(AuditLog.application_id == application_id).order_by(AuditLog.created_at.asc()).all()
+        audit_list = [
+            {
+                "id": str(a.id),
+                "action": a.action,
+                "from_state": a.from_state,
+                "to_state": a.to_state,
+                "actor_user_id": str(a.actor_user_id) if a.actor_user_id else None,
+                "details": a.details,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+            }
+            for a in audit_logs
+        ]
+    except Exception:
+        audit_list = []
 
     # 8. Available Transitions for current role
     engine = WorkflowEngine(db)
