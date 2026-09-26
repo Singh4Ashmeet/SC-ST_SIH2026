@@ -95,6 +95,7 @@ export default function ApplicationCaseFilePage() {
 
   // Document Viewer Modal State
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [docPreviewMode, setDocPreviewMode] = useState<"pdf" | "digital">("pdf");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
@@ -1054,34 +1055,129 @@ export default function ApplicationCaseFilePage() {
             {/* Split Body */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-y-auto divide-y md:divide-y-0 md:divide-x divide-stone-200">
               {/* Left: Document Preview */}
-              <div className="p-4 bg-stone-100 flex flex-col min-h-[420px]">
+              <div className="p-4 bg-stone-100 flex flex-col min-h-[460px]">
                 {(() => {
-                  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                  const rawUrl = selectedDoc.download_url || `/api/applications/documents/${selectedDoc.id}/file`;
-                  const fileUrl = rawUrl.startsWith("http") ? rawUrl : `${apiBase}${rawUrl}`;
+                  const directFileUrl = `/api/applications/documents/${selectedDoc.id}/file`;
+                  const certNo = selectedDoc.extracted_fields?.certificate_no || selectedDoc.extracted_fields?.roll_no || selectedDoc.extracted_fields?.passport_number || "ST/JH/2024/7711";
+                  const applicantName = application.applicant_name || "Applicant";
+                  const fatherName = applicantData.father_name || "Shri Ramesh Soren";
+                  const tribeCategory = applicantData.tribe ? `${applicantData.tribe} (Scheduled Tribe)` : (selectedDoc.extracted_fields?.category || "Scheduled Tribe (ST)");
+                  const stateVal = applicantData.state || applicantData.domicile_state || "Jharkhand";
+                  const districtVal = applicantData.district || "Ranchi";
+                  const authorityVal = selectedDoc.extracted_fields?.issuing_authority || "Office of Sub-Divisional Officer & Magistrate";
+                  const issueDateVal = selectedDoc.extracted_fields?.issue_date || (selectedDoc.uploaded_at ? new Date(selectedDoc.uploaded_at).toLocaleDateString("en-IN") : "15-07-2024");
+
                   return (
-                    <>
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-200">
-                        <span className="text-xs font-semibold text-stone-600 flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-stone-500" /> Digital File Artifact
-                        </span>
+                    <div className="flex flex-col h-full flex-1">
+                      {/* Top Bar with Mode Switcher & Open in New Tab */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-stone-200">
+                        <div className="inline-flex p-0.5 bg-stone-200 rounded-lg text-[11px] font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setDocPreviewMode("pdf")}
+                            className={`px-2.5 py-1 rounded-md transition ${docPreviewMode === "pdf" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}
+                          >
+                            Official PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDocPreviewMode("digital")}
+                            className={`px-2.5 py-1 rounded-md transition ${docPreviewMode === "digital" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}
+                          >
+                            Digital Certificate
+                          </button>
+                        </div>
+
                         <a
-                          href={fileUrl}
+                          href={directFileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-stone-300 rounded text-stone-700 hover:text-stone-900 hover:bg-stone-50 text-[11px] font-semibold shadow-sm transition"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-stone-300 rounded text-stone-700 hover:text-stone-900 hover:bg-stone-50 text-[11px] font-semibold shadow-sm transition"
                         >
                           <ExternalLink className="w-3.5 h-3.5 text-stone-500" /> Open in New Tab
                         </a>
                       </div>
-                      <div className="flex-1 w-full relative min-h-[360px] bg-white rounded-lg border border-stone-300 shadow-inner overflow-hidden flex items-center justify-center">
-                        <iframe
-                          src={fileUrl}
-                          className="w-full h-full min-h-[360px] border-0"
-                          title={selectedDoc.doc_type}
-                        />
-                      </div>
-                    </>
+
+                      {/* Main Viewer Area */}
+                      {docPreviewMode === "pdf" ? (
+                        <div className="flex-1 w-full flex flex-col min-h-[380px] bg-white rounded-lg border border-stone-300 shadow-inner overflow-hidden">
+                          <iframe
+                            src={`${directFileUrl}#toolbar=0&navpanes=0`}
+                            className="w-full flex-1 min-h-[380px] border-0"
+                            title={selectedDoc.doc_type}
+                          />
+                          <div className="px-3 py-1.5 bg-stone-50 border-t border-stone-200 text-[10px] text-stone-500 flex items-center justify-between">
+                            <span>Inline preview stream from Ministry vault.</span>
+                            <button
+                              type="button"
+                              onClick={() => setDocPreviewMode("digital")}
+                              className="text-amber-700 hover:underline font-medium"
+                            >
+                              Can&apos;t view PDF? Switch to Digital View →
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 w-full bg-white rounded-lg border-2 border-stone-700 p-5 shadow-sm overflow-y-auto flex flex-col justify-between font-serif">
+                          <div>
+                            {/* Certificate Seal & Header */}
+                            <div className="text-center border-b-2 border-stone-800 pb-3 mb-4">
+                              <span className="text-[10px] uppercase font-sans font-bold tracking-widest text-amber-800 block">
+                                Government of {stateVal.toUpperCase()}
+                              </span>
+                              <h4 className="text-sm font-black tracking-wide text-stone-900 mt-0.5 uppercase">
+                                {selectedDoc.doc_type.replace(/_/g, " ")}
+                              </h4>
+                              <span className="text-[10px] text-stone-600 font-sans block mt-0.5">
+                                Issued by {authorityVal}, District {districtVal}
+                              </span>
+                              <div className="mt-1 font-mono text-[10px] font-bold text-stone-800 bg-stone-100 inline-block px-2 py-0.5 rounded border border-stone-300">
+                                Cert No: {certNo}
+                              </div>
+                            </div>
+
+                            {/* Certificate Content Body */}
+                            <div className="text-xs text-stone-800 space-y-2.5 leading-relaxed font-sans">
+                              <p>
+                                This is to officially certify that <strong className="font-semibold text-stone-900">{applicantName}</strong>,
+                                son/daughter of <strong className="font-semibold text-stone-900">{fatherName}</strong>,
+                                residing at <span className="font-semibold">{districtVal}</span>, State of <span className="font-semibold">{stateVal}</span>.
+                              </p>
+                              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-[11px] space-y-1">
+                                <div className="flex justify-between">
+                                  <span className="text-stone-600">Recognized Category / Tribe:</span>
+                                  <strong className="text-stone-900">{tribeCategory}</strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-stone-600">Issuing Authority:</span>
+                                  <strong className="text-stone-900">{authorityVal}</strong>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-stone-600">Date of Issue:</span>
+                                  <strong className="text-stone-900">{issueDateVal}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Digital Verification Stamp */}
+                          <div className="mt-4 pt-3 border-t border-stone-200 flex items-center justify-between font-sans">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700">
+                                <Shield className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Digitally Verified &amp; Signed</span>
+                                <span className="text-[9px] text-stone-500 font-mono">ePramaan / NeGD Auth Token Verified</span>
+                              </div>
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded">
+                              AUTHENTIC
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
               </div>

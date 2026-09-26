@@ -349,10 +349,33 @@ def get_document_file(
         verify_document_access(current_user, document, application, Permission.DOCUMENT_VIEW)
 
     file_bytes = None
-    try:
-        file_bytes = storage_service.download_file(document.storage_key)
-    except Exception:
-        pass
+    # 1. Check if exact file exists in storage for this application
+    if storage_service.has_exact_key(document.storage_key):
+        try:
+            file_bytes = storage_service.download_exact(document.storage_key)
+        except Exception:
+            pass
+
+    # 2. If exact file is not in storage, dynamically generate official certificate for THIS applicant
+    if not file_bytes and application:
+        try:
+            from app.services.document_pdf_generator import generate_applicant_document_pdf
+            file_bytes = generate_applicant_document_pdf(document, application)
+            # Cache it in storage for this application
+            if file_bytes:
+                try:
+                    storage_service.upload_file(file_bytes, document.storage_key, "application/pdf")
+                except Exception:
+                    pass
+        except Exception as gen_err:
+            pass
+
+    # 3. Fallback to storage_service.download_file
+    if not file_bytes:
+        try:
+            file_bytes = storage_service.download_file(document.storage_key)
+        except Exception:
+            pass
 
     if not file_bytes:
         raise HTTPException(

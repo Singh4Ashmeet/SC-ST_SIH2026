@@ -56,41 +56,61 @@ class StorageService:
                 logger.error(f"Error checking bucket: {e}")
                 raise
 
+    def has_exact_key(self, key: str) -> bool:
+        """Check if the exact key exists in object storage without alias fallback."""
+        if not key:
+            return False
+        try:
+            self._client.head_object(Bucket=self._bucket, Key=key)
+            return True
+        except Exception:
+            return False
+
+    def download_exact(self, key: str) -> bytes:
+        """Download exact key directly from storage."""
+        response = self._client.get_object(Bucket=self._bucket, Key=key)
+        return response["Body"].read()
+
     def resolve_key(self, key: str) -> str:
         """
-        Check if key exists in Supabase storage.
-        If direct key is missing, resolve to an actual uploaded file in Supabase matching doc_type.
+        Check if key exists in storage.
+        If direct key is missing, only check for filename variations within the SAME application prefix.
+        Never return another applicant's document.
         """
+        if not key:
+            return key
         try:
             self._client.head_object(Bucket=self._bucket, Key=key)
             return key
         except Exception:
             pass
 
-        # Parse doc_type from key structure e.g. ".../caste_certificate/bikram_st_cert.pdf"
+        # Parse application prefix and doc_type
         parts = key.split("/")
-        raw_type = parts[1] if len(parts) >= 2 else parts[0]
-        
-        alias_map = {
-            "caste": "caste_certificate",
-            "income": "income_certificate",
-            "bonafide": "bonafide_certificate",
-            "admission": "admission_letter",
-            "transcript": "degree_transcript",
-            "ielts": "ielts_toefl_scorecard",
-        }
-        doc_type = alias_map.get(raw_type.lower(), raw_type)
+        if len(parts) >= 2:
+            app_prefix = parts[0]
+            raw_type = parts[1]
+            alias_map = {
+                "caste": "caste_certificate",
+                "income": "income_certificate",
+                "bonafide": "bonafide_certificate",
+                "admission": "admission_letter",
+                "transcript": "degree_transcript",
+                "ielts": "ielts_toefl_scorecard",
+            }
+            doc_type = alias_map.get(raw_type.lower(), raw_type)
 
-        try:
-            resp = self._client.list_objects_v2(Bucket=self._bucket)
-            for obj in resp.get("Contents", []):
-                obj_key = obj["Key"]
-                if f"/{doc_type}/" in obj_key or obj_key.startswith(f"{doc_type}/"):
-                    return obj_key
-                if raw_type in obj_key:
-                    return obj_key
-        except Exception as e:
-            logger.warning(f"Key resolution failed for {key}: {e}")
+            try:
+                # Strictly isolate query to this application's folder only
+                resp = self._client.list_objects_v2(Bucket=self._bucket, Prefix=f"{app_prefix}/")
+                for obj in resp.get("Contents", []):
+                    obj_key = obj["Key"]
+                    if f"/{doc_type}/" in obj_key or obj_key.startswith(f"{app_prefix}/{doc_type}/"):
+                        return obj_key
+                    if raw_type in obj_key:
+                        return obj_key
+            except Exception as e:
+                logger.warning(f"Key resolution failed for {key}: {e}")
 
         return key
 
