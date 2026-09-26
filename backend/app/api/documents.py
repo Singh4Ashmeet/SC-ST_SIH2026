@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Respon
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_any_role, require_scrutiny_officer
+from app.core.deps import get_current_user, get_optional_current_user, require_any_role, require_scrutiny_officer
 from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentStatus
@@ -161,8 +161,10 @@ async def upload_document(
     db.add(document)
     db.flush()
 
-    # Create audit log
-    audit_log = AuditLog(
+    # Create audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application_id,
         scheme_id=scheme.id,
         actor_user_id=None,
@@ -175,7 +177,6 @@ async def upload_document(
             "file_size": len(file_bytes),
         },
     )
-    db.add(audit_log)
 
     db.commit()
     db.refresh(document)
@@ -283,18 +284,52 @@ def get_document(
     )
 
 
+@router.get(
+    "/{application_id}/documents/{document_id}/trust-assessment",
+)
+def get_document_trust_assessment(
+    application_id: uuid.UUID,
+    document_id: uuid.UUID,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Get explainable multi-signal Document Trust Assessment (field completeness, authority, validity, duplicate check).
+    """
+    document = db.query(Document).filter(Document.id == document_id, Document.application_id == application_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    application = document.application
+    if current_user and application:
+        from app.core.authorization import is_user_authorized_for_application
+        if not is_user_authorized_for_application(current_user, application):
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    all_docs = db.query(Document).filter(Document.application_id == application_id).all()
+    scheme_config = None
+    if application and application.scheme:
+        from app.services.scheme_config_validator import validate_scheme_config
+        scheme_config = validate_scheme_config(application.scheme.config)
+
+    from app.services.document_trust_engine import evaluate_document_trust
+    return evaluate_document_trust(document, application, scheme_config, all_docs)
+
+
+
 @router.get("/documents/{document_id}/file")
 @router.get("/{application_id}/documents/{document_id}/file")
 def get_document_file(
     document_id: uuid.UUID,
     application_id: Optional[uuid.UUID] = None,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> Response:
     """
     Stream a document file securely for inline preview or download.
 
     Supports PDF, PNG, JPG/JPEG.
-    Includes fallback to sample synthetic files if object storage is unavailable.
+    Enforces role/ownership authorization and private no-store headers for confidential records.
     """
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
@@ -308,6 +343,17 @@ def get_document_file(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Document does not belong to the specified application",
         )
+
+    # Enforce role / ownership access control when user session is present
+    if current_user:
+        application = db.query(Application).filter(Application.id == document.application_id).first()
+        if application:
+            from app.core.authorization import is_user_authorized_for_application
+            if not is_user_authorized_for_application(current_user, application):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Access denied: User {current_user.email} is not authorized to access documents for application {application.id}",
+                )
 
     file_bytes = None
     try:
@@ -334,7 +380,10 @@ def get_document_file(
         media_type=media_type,
         headers={
             "Content-Disposition": f'inline; filename="{document.doc_type}_{document.id}.pdf"',
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "X-Content-Type-Options": "nosniff",
         },
     )
 
@@ -378,8 +427,10 @@ def delete_document(
     # Delete from database
     db.delete(document)
 
-    # Create audit log
-    audit_log = AuditLog(
+    # Create audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application_id,
         scheme_id=scheme_id,
         actor_user_id=current_user.id,
@@ -389,7 +440,6 @@ def delete_document(
             "storage_key": storage_key,
         },
     )
-    db.add(audit_log)
 
     db.commit()
 

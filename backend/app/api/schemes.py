@@ -43,14 +43,15 @@ def _create_audit_log(
     actor_user_id: UUID,
     details: Optional[Dict[str, Any]] = None,
 ) -> AuditLog:
-    """Create and persist an audit log entry."""
-    audit_log = AuditLog(
+    """Create and persist an audit log entry with cryptographic hash chain."""
+    from app.services.audit_service import create_audit_log
+    audit_log = create_audit_log(
+        db=db,
         scheme_id=scheme_id,
         actor_user_id=actor_user_id,
         action=action,
         details=details or {},
     )
-    db.add(audit_log)
     db.flush()
     return audit_log
 

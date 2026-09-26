@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-09-26T18:42:11Z",
+  "total_documents": 368,
+  "clean_count": 185,
+  "deficient_count": 115,
+  "noisy_count": 68,
+  "metrics": {
+    "ocr_success_rate_percent": 100.0,
+    "field_extraction_accuracy_percent": 27.44,
+    "deficiency_detection_rate_percent": 100.0,
+    "wrong_document_rejection_rate_percent": 94.8,
+    "median_latency_seconds": 0.023,
+    "average_latency_seconds": 0.025,
+    "total_benchmark_duration_seconds": 9.25
+  },
+  "breakdown": {
+    "clean": {
+      "total": 185,
+      "ocr_success": 185,
+      "fields_matched": 273,
+      "fields_expected": 965
+    },
+    "deficient": {
+      "total": 115,
+      "ocr_success": 115,
+      "detected": 115
+    },
+    "noisy": {
+      "total": 68,
+      "ocr_success": 68,
+      "fields_matched": 101,
+      "fields_expected": 359
+    }
+  }
+}

@@ -33,9 +33,12 @@ from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.models.disbursement import Disbursement, DisbursementStatus
 from app.models.document import Document, DocumentStatus
+from app.models.conflict import Conflict, ConflictStatus, ConflictType
+from app.models.grievance import Grievance, GrievancePriority, GrievanceStatus
 from app.models.renewal import Renewal, RenewalStatus
 from app.models.scheme import Scheme
 from app.models.user import User, UserRole
+from app.services.audit_service import recompute_all_hashes
 from app.services.scheme_config_validator import validate_scheme_config
 
 
@@ -234,7 +237,64 @@ def seed_demo_data():
             nos_scheme.is_active = True
             print("  Updated Scheme: NOS (Active, Config synced)")
 
+        # HEMF (Demonstration / Third Scheme)
+        hemf_scheme = db.execute(
+            select(Scheme).where(Scheme.code == "HEMF")
+        ).scalar_one_or_none()
+
+        if not hemf_scheme:
+            hemf_scheme = Scheme(
+                code="HEMF",
+                name="Higher Education Merit Fellowship for ST Students",
+                description="Demonstration scheme showcasing zero-code dynamic form and rule configuration.",
+                config={
+                    "code": "HEMF",
+                    "name": "Higher Education Merit Fellowship for ST Students",
+                    "version": 1,
+                    "workflow_states": [
+                        {"name": "submitted", "label": "Submitted"},
+                        {"name": "eligibility_check", "label": "Eligibility Check"},
+                        {"name": "document_scrutiny", "label": "Document Scrutiny"},
+                        {"name": "selection", "label": "Selection Review"},
+                        {"name": "approved", "label": "Approved"},
+                    ],
+                    "workflow_transitions": [
+                        {"from_state": "submitted", "to_state": "eligibility_check", "trigger": "auto_evaluate"},
+                        {"from_state": "eligibility_check", "to_state": "document_scrutiny", "trigger": "eligibility_passed"},
+                        {"from_state": "document_scrutiny", "to_state": "selection", "trigger": "documents_verified"},
+                        {"from_state": "selection", "to_state": "approved", "trigger": "committee_approved"},
+                    ],
+                    "required_documents": [
+                        {"doc_type": "caste_certificate", "label": "Scheduled Tribe Certificate", "required": True},
+                        {"doc_type": "income_certificate", "label": "Family Income Certificate", "required": True},
+                        {"doc_type": "marksheet", "label": "Qualifying Degree Marksheet", "required": True},
+                    ],
+                    "eligibility_rules": [
+                        {"field": "category", "condition": {"==": [{"var": "category"}, "ST"]}, "failure_message": "Applicant must belong to Scheduled Tribe."},
+                        {"field": "annual_income", "condition": {"<=": [{"var": "annual_income"}, 500000]}, "failure_message": "Annual family income must not exceed INR 5,00,000."},
+                        {"field": "qualifying_exam_percent", "condition": {">=": [{"var": "qualifying_exam_percent"}, 65.0]}, "failure_message": "Minimum 65% aggregate marks required."},
+                    ],
+                },
+                is_active=True,
+                created_by=admin_user.id,
+            )
+            db.add(hemf_scheme)
+            db.flush()
+            db.add(
+                AuditLog(
+                    scheme_id=hemf_scheme.id,
+                    actor_user_id=admin_user.id,
+                    action="scheme_created",
+                    details={"config_version": 1},
+                )
+            )
+            print("  Created Scheme: HEMF (Higher Education Merit Fellowship)")
+        else:
+            hemf_scheme.is_active = True
+            print("  Updated Scheme: HEMF (Active)")
+
         db.commit()
+
 
         # ---------------------------------------------------------------------
         # 4. SCENARIOS POPULATION
@@ -876,7 +936,43 @@ def seed_demo_data():
             "description": "Fresh application intake awaiting automated evaluation.",
         })
 
+        # Seed Cross-Scheme Beneficiary Conflict (NFST vs NOS)
+        conflict1 = Conflict(
+            application_id=app_extra1.id,
+            conflicting_application_id=app_extra2.id,
+            conflict_type=ConflictType.CONCURRENT_SCHOLARSHIP,
+            status=ConflictStatus.PENDING_REVIEW,
+            confidence=94.0,
+            matching_signals={
+                "name_similarity": 0.98,
+                "dob_match": True,
+                "identity_token_match": True,
+                "caste_category_match": True,
+            },
+            policy_description="Restriction against holding concurrent Central Government fellowships under multiple schemes.",
+            explanation="Applicant flagged under both NFST and NOS portals with identical demographic and academic profile.",
+        )
+        db.add(conflict1)
+
+        # Seed Grievance Record
+        grievance1 = Grievance(
+            application_id=app3.id,
+            applicant_name=app3.applicant_name,
+            applicant_email=app3.applicant_email,
+            category="DOCUMENT_DEFICIENCY",
+            description="Requesting clarification on expired income certificate validity window. Updated certificate obtained from Tehsildar.",
+            priority=GrievancePriority.HIGH,
+            status=GrievanceStatus.IN_PROGRESS,
+            assigned_role="SCRUTINY_OFFICER",
+            assigned_user_id=scrutiny_user.id,
+        )
+        db.add(grievance1)
         db.commit()
+
+        # Cryptographic Hash Chain Seal (Phase 14 & 15)
+        sealed_count = recompute_all_hashes(db)
+        print(f"  [OK] Sealed {sealed_count} audit trail records into append-only SHA-256 cryptographic hash chain.")
+
 
         # ---------------------------------------------------------------------
         # 5. GENERATE SAMPLE CLEAN DOCUMENT FOR LIVE RESUBMISSION DEMO

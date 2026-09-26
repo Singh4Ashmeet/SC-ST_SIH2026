@@ -22,7 +22,7 @@ from app.models.merit_evaluation import MeritEvaluation
 from app.models.institute_verification import InstituteVerification
 from app.models.grievance import Grievance
 from app.models.scheme import Scheme
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.application import ApplicationCreate, ApplicationRead
 from app.schemas.scheme_config import WorkflowTransition
 from app.services.workflow_engine import WorkflowEngine, InvalidTransitionError
@@ -140,8 +140,10 @@ def create_application(
     db.add(application)
     db.flush()
 
-    # Create audit log for application creation
-    audit_log = AuditLog(
+    # Create audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application.id,
         scheme_id=scheme.id,
         actor_user_id=None,
@@ -150,7 +152,6 @@ def create_application(
         to_state=initial_state,
         details={"applicant_data": payload.applicant_data},
     )
-    db.add(audit_log)
 
     db.commit()
     db.refresh(application)
@@ -170,12 +171,17 @@ def create_application(
 @router.get("/{application_id}", response_model=ApplicationRead)
 def get_application(
     application_id: uuid.UUID,
-    db: Session = Depends(get_db)
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
 ) -> Application:
-    """Fetch an application by ID with its current state. Intentionally unauthenticated for applicant self-service."""
+    """Fetch an application by ID with its current state. Enforces RBAC/ownership authorization when authenticated."""
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
+    if current_user:
+        from app.core.authorization import is_user_authorized_for_application
+        if not is_user_authorized_for_application(current_user, application):
+            raise HTTPException(status_code=403, detail="Access denied to application")
     return application
 
 
@@ -391,23 +397,36 @@ def get_case_file(
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    if current_user:
+        from app.core.authorization import is_user_authorized_for_application
+        if not is_user_authorized_for_application(current_user, application):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: You do not have permission to view application {application_id}",
+            )
+
     scheme = application.scheme
     from app.services.scheme_config_validator import validate_scheme_config
     scheme_config = validate_scheme_config(scheme.config) if scheme else None
 
-    # 1. Documents & Extracted Fields
+    # 1. Documents & Extracted Fields with Document Trust Engine
+    from app.services.document_trust_engine import evaluate_document_trust, build_evidence_graph
     documents = db.query(Document).filter(Document.application_id == application_id).all()
     doc_list = []
     for d in documents:
+        trust_eval = evaluate_document_trust(d, application, scheme_config, documents)
         doc_list.append({
             "id": str(d.id),
             "doc_type": d.doc_type,
             "status": d.status.value if hasattr(d.status, "value") else str(d.status),
             "extracted_fields": d.extracted_fields,
             "deficiency_reasons": d.deficiency_reasons,
+            "trust_assessment": trust_eval,
             "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
             "download_url": f"/api/applications/documents/{d.id}/file",
         })
+
+    evidence_graph = build_evidence_graph(application, documents)
 
     # 2. Eligibility Evaluation
     eligibility_result = None
@@ -566,6 +585,22 @@ def get_case_file(
         "next_recommended_action": "Review documents & run scrutiny" if application.current_state == "submitted" else f"Advance workflow stage from {application.current_state}",
     }
 
+    # Role-scoped data projection
+    filtered_merit = merit_data
+    filtered_conflict = conflict_data
+    filtered_audit = audit_list
+    filtered_docs = doc_list
+
+    if current_user and current_user.role == UserRole.APPLICANT:
+        filtered_conflict = None
+        if merit_data and merit_data.get("decision") not in ["AWARDED", "REJECTED"]:
+            filtered_merit = {"status": "Evaluation in progress"}
+        filtered_audit = [a for a in audit_list if a.get("action") in ["application_created", "state_transition", "document_uploaded", "resubmission"]]
+    elif current_user and current_user.role == UserRole.INSTITUTE_VERIFIER:
+        filtered_conflict = None
+        filtered_merit = None
+        filtered_docs = [d for d in doc_list if d.get("doc_type") in ["bonafide_certificate", "marksheet", "admission_letter", "joining_report"]]
+
     return {
         "application": ApplicationRead.model_validate(application),
         "scheme": {
@@ -576,15 +611,80 @@ def get_case_file(
             "workflow_states": [ws.model_dump() for ws in scheme_config.workflow_states] if scheme_config else [],
             "required_documents": [rd.model_dump() for rd in scheme_config.required_documents] if scheme_config else [],
         } if scheme else None,
-        "documents": doc_list,
+        "documents": filtered_docs,
         "eligibility_result": eligibility_result,
-        "conflict": conflict_data,
-        "merit": merit_data,
+        "conflict": filtered_conflict,
+        "merit": filtered_merit,
         "institute_verification": inst_data,
         "grievances": grievance_list,
-        "audit_logs": audit_list,
+        "audit_logs": filtered_audit,
+        "evidence_graph": evidence_graph,
         "available_transitions": available_transitions,
         "current_user_role": user_role,
         "sla": sla_data,
         "case_decision_summary": case_decision_summary,
     }
+
+
+@router.get("/{application_id}/decision-trace")
+def get_application_decision_trace(
+    application_id: uuid.UUID,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Decision Trace (Phase 8): Full explainable audit trace mapping:
+    Rule -> Policy Version -> Condition -> Extracted Evidence -> Supporting Document -> Verdict.
+    """
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if current_user:
+        from app.core.authorization import is_user_authorized_for_application
+        if not is_user_authorized_for_application(current_user, application):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: You do not have permission to view application {application_id}",
+            )
+
+    from app.services.policy_simulation_engine import build_decision_trace
+    try:
+        return build_decision_trace(db, application_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+class ReplayDecisionRequest(BaseModel):
+    proposed_config: Optional[Dict[str, Any]] = None
+
+
+@router.post("/{application_id}/replay-decision")
+def replay_application_decision_endpoint(
+    application_id: uuid.UUID,
+    payload: Optional[ReplayDecisionRequest] = None,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Decision Replay (Phase 22): Re-evaluates an application against:
+    Historical policy vs Current policy vs Proposed policy, highlighting exactly which rule changed.
+    """
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if current_user:
+        from app.core.authorization import is_user_authorized_for_application
+        if not is_user_authorized_for_application(current_user, application):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: You do not have permission to view application {application_id}",
+            )
+
+    from app.services.policy_simulation_engine import replay_application_decision
+    proposed_cfg = payload.proposed_config if payload else None
+    try:
+        return replay_application_decision(db, application_id, proposed_config_dict=proposed_cfg)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

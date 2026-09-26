@@ -39,8 +39,10 @@ def run_conflict_detection(
         threshold=threshold,
     )
 
-    # Audit log
-    audit = AuditLog(
+    # Audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application_id,
         actor_user_id=current_user.id,
         action="conflict_detection_run",
@@ -49,7 +51,6 @@ def run_conflict_detection(
             "threshold": threshold,
         },
     )
-    db.add(audit)
     db.commit()
 
     return {
@@ -161,9 +162,11 @@ def resolve_conflict(
     conflict.resolved_at = datetime.now(timezone.utc)
     conflict.resolution_remarks = body.get("resolution_remarks", "")
 
-    # Audit log
-    audit = AuditLog(
-        application_id=conflict.application_id,
+    # Audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
+        application_id=conflict.primary_application_id if hasattr(conflict, "primary_application_id") else getattr(conflict, "application_id", None),
         actor_user_id=current_user.id,
         action="conflict_resolved",
         details={
@@ -172,7 +175,6 @@ def resolve_conflict(
             "remarks": conflict.resolution_remarks,
         },
     )
-    db.add(audit)
     db.commit()
 
     return {

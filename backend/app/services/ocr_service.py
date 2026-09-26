@@ -76,6 +76,39 @@ class TesseractOCRProvider(BaseOCRProvider):
         }
 
     def _extract_pdf(self, file_bytes: bytes) -> str:
+        # 1. First attempt pure-python embedded text extraction using PyMuPDF (fast & no external dependencies)
+        try:
+            import pymupdf
+            doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+            extracted_pages = []
+            for i, page in enumerate(doc):
+                txt = page.get_text()
+                if txt and txt.strip():
+                    extracted_pages.append(f"--- Page {i + 1} ---\n{txt.strip()}")
+            if extracted_pages:
+                return "\n\n".join(extracted_pages)
+        except Exception:
+            pass
+
+        # 2. If scanned image PDF, render pixmaps via PyMuPDF and OCR via pytesseract (no poppler required)
+        try:
+            import pymupdf
+            import pytesseract
+            from PIL import Image
+            doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+            all_text = []
+            for i, page in enumerate(doc):
+                pix = page.get_pixmap(dpi=200)
+                img = Image.open(io.BytesIO(pix.tobytes("png")))
+                page_text = pytesseract.image_to_string(img, lang="eng")
+                if page_text.strip():
+                    all_text.append(f"--- Page {i + 1} ---\n{page_text}")
+            if all_text:
+                return "\n\n".join(all_text)
+        except Exception:
+            pass
+
+        # 3. Fallback to pdf2image if poppler is installed
         try:
             from pdf2image import convert_from_bytes
             import pytesseract
@@ -93,6 +126,7 @@ class TesseractOCRProvider(BaseOCRProvider):
         except Exception as e:
             logger.warning(f"PDF OCR failed: {e}")
             return ""
+
 
     def _extract_image(self, file_bytes: bytes, content_type: str) -> str:
         import pytesseract

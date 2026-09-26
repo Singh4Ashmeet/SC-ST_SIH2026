@@ -109,11 +109,45 @@ export async function login(creds: LoginRequest): Promise<LoginResponse> {
   });
 }
 
+export interface ApplicantRegisterRequest {
+  email: string;
+  password: string;
+  full_name: string;
+  phone?: string;
+}
+
+export async function applicantRegister(data: ApplicantRegisterRequest): Promise<LoginResponse> {
+  return apiFetch<LoginResponse>("/api/auth/applicant/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function getMe(): Promise<UserMe> {
   return apiFetch<UserMe>("/api/auth/me");
 }
 
 // ── Scheme types & API ───────────────────────────────────────────────────────
+
+export interface FormFieldOption {
+  value: string;
+  label: string;
+}
+
+export interface FormFieldSchema {
+  key: string;
+  label: string;
+  type: "text" | "number" | "date" | "select" | "multiselect" | "boolean" | "textarea" | "email";
+  required?: boolean;
+  placeholder?: string;
+  help_text?: string;
+  options?: Array<string | FormFieldOption>;
+  validation?: Record<string, unknown>;
+}
+
+export interface FormSchema {
+  fields: FormFieldSchema[];
+}
 
 export interface EligibilityRule {
   field: string;
@@ -127,6 +161,8 @@ export interface RequiredDocument {
   required: boolean;
   accepted_formats: string[];
   validity_days?: number | null;
+  ocr_fields?: string[];
+  issuing_authority?: string | null;
 }
 
 export interface WorkflowState {
@@ -145,11 +181,15 @@ export interface WorkflowTransition {
 export interface SchemeConfig {
   scheme_code: string;
   version: number;
+  form_schema?: FormSchema;
   eligibility_rules: EligibilityRule[];
   required_documents: RequiredDocument[];
   workflow_states: WorkflowState[];
   workflow_transitions: WorkflowTransition[];
   initial_state: string;
+  sla_rules?: Array<{ stage: string; duration_hours: number }>;
+  notification_rules?: Array<{ event: string; channels: string[] }>;
+  conflict_rules?: Array<{ incompatible_schemes: string[]; policy: string }>;
 }
 
 export interface SchemeRead {
@@ -317,6 +357,41 @@ export async function getAuditLogs(params?: {
   if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
   const qs = searchParams.toString();
   return apiFetch<AuditLogListResponse>(`/api/audit-log${qs ? `?${qs}` : ""}`);
+}
+
+export interface AuditVerificationResult {
+  status: string;
+  audit_integrity: string;
+  events_checked: number;
+  total_events_verified: number;
+  broken_links: number;
+  invalid_hashes: number;
+  tamper_detected: boolean;
+  tampered_entry_id?: string | null;
+  first_broken_event?: {
+    id: string;
+    action: string;
+    created_at?: string;
+    expected_hash?: string;
+    found_hash?: string;
+  } | null;
+  hash_algorithm: string;
+}
+
+export async function verifyAuditLog(): Promise<AuditVerificationResult> {
+  return apiFetch<AuditVerificationResult>("/api/audit-log/verify");
+}
+
+export async function simulateAuditTamper(): Promise<{ message: string; tampered_event_id: string; action: string }> {
+  return apiFetch<{ message: string; tampered_event_id: string; action: string }>("/api/audit-log/simulate-tamper", {
+    method: "POST",
+  });
+}
+
+export async function restoreAuditChain(): Promise<{ message: string; repaired_count: number }> {
+  return apiFetch<{ message: string; repaired_count: number }>("/api/audit-log/restore", {
+    method: "POST",
+  });
 }
 
 // ── Document types & API ─────────────────────────────────────────────────────
@@ -678,9 +753,11 @@ export interface CaseFileData {
     status: string;
     extracted_fields: Record<string, any> | null;
     deficiency_reasons: Array<any> | null;
+    trust_assessment?: any;
     uploaded_at: string | null;
     download_url: string;
   }>;
+  evidence_graph?: any;
   eligibility_result: {
     passed: boolean;
     failed_rules: Array<{ field: string; failure_message: string; condition: any }>;
@@ -753,4 +830,93 @@ export interface CaseFileData {
 export async function getCaseFile(applicationId: string): Promise<CaseFileData> {
   return apiFetch<CaseFileData>(`/api/applications/${applicationId}/case-file`);
 }
+
+// ── Audit Cryptographic Hash Chain Verification & Tamper Demo ───────────────
+
+export interface AuditVerificationResult {
+  status: "VERIFIED" | "TAMPER_DETECTED" | "CORRUPTED";
+  is_valid: boolean;
+  total_events: number;
+  broken_links_count: number;
+  invalid_hashes_count: number;
+  first_broken_log_id: string | null;
+  expected_hash: string | null;
+  found_hash: string | null;
+  message: string;
+}
+
+export async function verifyAuditHashChain(): Promise<AuditVerificationResult> {
+  return apiFetch<AuditVerificationResult>("/api/audit-log/verify");
+}
+
+export async function simulateAuditTampering(): Promise<{
+  message: string;
+  tampered_log_id: string;
+  original_action: string;
+  tampered_action: string;
+}> {
+  return apiFetch<{
+    message: string;
+    tampered_log_id: string;
+    original_action: string;
+    tampered_action: string;
+  }>("/api/audit-log/simulate-tamper", {
+    method: "POST",
+  });
+}
+
+export async function restoreAuditTampering(): Promise<{
+  message: string;
+  restored_log_id: string;
+}> {
+  return apiFetch<{
+    message: string;
+    restored_log_id: string;
+  }>("/api/audit-log/restore", {
+    method: "POST",
+  });
+}
+
+// ── Decision Provenance & Decision Replay (Phases 8 & 22) ───────────────────
+
+export interface DecisionTraceRule {
+  rule_id: string;
+  policy_version: string;
+  field: string;
+  condition: any;
+  failure_message: string;
+  declared_value: any;
+  extracted_evidence_value: any;
+  supporting_document?: {
+    doc_id: string;
+    doc_name: string;
+    download_url: string;
+  } | null;
+  status: "PASS" | "FAIL";
+}
+
+export interface DecisionTraceResponse {
+  application_id: string;
+  applicant_name: string;
+  scheme_code: string;
+  policy_version: string;
+  overall_result: "PASS" | "FAIL";
+  rules_evaluated: number;
+  decision_trace: DecisionTraceRule[];
+}
+
+export async function getDecisionTrace(applicationId: string): Promise<DecisionTraceResponse> {
+  return apiFetch<DecisionTraceResponse>(`/api/applications/${applicationId}/decision-trace`);
+}
+
+export async function replayDecision(
+  applicationId: string,
+  proposedConfig?: Record<string, any>
+): Promise<any> {
+  return apiFetch<any>(`/api/applications/${applicationId}/replay-decision`, {
+    method: "POST",
+    body: JSON.stringify({ proposed_config: proposedConfig }),
+  });
+}
+
 

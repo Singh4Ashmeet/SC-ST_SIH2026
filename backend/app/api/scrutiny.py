@@ -282,8 +282,10 @@ async def resubmit_document(
     document.extracted_fields = None
     document.deficiency_reasons = None
 
-    # Create audit log for resubmission
-    audit_log = AuditLog(
+    # Create audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application_id,
         scheme_id=scheme.id,
         actor_user_id=None,
@@ -297,7 +299,6 @@ async def resubmit_document(
             "file_size": len(file_bytes),
         },
     )
-    db.add(audit_log)
 
     db.commit()
     db.refresh(document)

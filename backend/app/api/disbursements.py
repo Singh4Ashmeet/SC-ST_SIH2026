@@ -117,7 +117,9 @@ def create_disbursement(
     db.add(disbursement)
     db.flush()
 
-    audit_log = AuditLog(
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application.id,
         scheme_id=application.scheme_id,
         actor_user_id=current_user.id,
@@ -131,7 +133,6 @@ def create_disbursement(
             "remarks": disbursement.remarks,
         },
     )
-    db.add(audit_log)
     db.commit()
     db.refresh(disbursement)
     return disbursement

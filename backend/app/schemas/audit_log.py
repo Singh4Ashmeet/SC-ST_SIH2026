@@ -17,6 +17,8 @@ class AuditLogBase(BaseModel):
     from_state: Optional[str] = None
     to_state: Optional[str] = None
     details: Optional[Any] = None
+    previous_hash: Optional[str] = None
+    current_hash: Optional[str] = None
 
 
 class AuditLogCreate(AuditLogBase):

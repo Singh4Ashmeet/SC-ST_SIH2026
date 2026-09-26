@@ -120,10 +120,37 @@ class PreferenceRule(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class FormFieldOption(BaseModel):
+    """Option for select or multiselect form fields."""
+    value: str
+    label: str
+    model_config = ConfigDict(extra="ignore")
+
+
+class FormFieldSchema(BaseModel):
+    """Specification of an applicant form field."""
+    key: str = Field(description="Unique field key matching applicant_data / rules")
+    label: str = Field(description="Human readable field label")
+    type: str = Field(default="text", description="Field input type: text, number, date, select, multiselect, boolean, textarea, email")
+    required: bool = Field(default=False, description="Whether this field is mandatory")
+    placeholder: Optional[str] = None
+    help_text: Optional[str] = None
+    options: Optional[List[Any]] = Field(default=None, description="Selectable options (strings or FormFieldOption objects)")
+    validation: Optional[Dict[str, Any]] = Field(default=None, description="Client/server validation constraints")
+    model_config = ConfigDict(extra="ignore")
+
+
+class FormSchema(BaseModel):
+    """Declarative schema for dynamically generated scheme application form."""
+    fields: List[FormFieldSchema] = Field(default_factory=list)
+    model_config = ConfigDict(extra="ignore")
+
+
 class SchemeConfig(BaseModel):
     """Top-level scheme configuration document stored in Scheme.config."""
     scheme_code: str
     version: int = 1
+    form_schema: Optional[FormSchema] = Field(default=None, description="Declarative dynamic application form schema")
     eligibility_rules: List[EligibilityRule] = Field(default_factory=list)
     required_documents: List[RequiredDocument] = Field(default_factory=list)
     merit_criteria: List[MeritCriterion] = Field(default_factory=list)

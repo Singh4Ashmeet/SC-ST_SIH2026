@@ -54,7 +54,9 @@ def create_renewal(
     db.add(renewal)
     db.flush()
 
-    audit_log = AuditLog(
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=application.id,
         scheme_id=application.scheme_id,
         actor_user_id=current_user.id,
@@ -68,7 +70,6 @@ def create_renewal(
             "remarks": renewal.remarks,
         },
     )
-    db.add(audit_log)
     db.commit()
     db.refresh(renewal)
 

@@ -10,7 +10,10 @@ import {
   runDocumentScrutiny,
   reprocessDocument,
   resolveConflict,
+  getDecisionTrace,
+  replayDecision,
   type CaseFileData,
+  type DecisionTraceResponse,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -92,6 +95,35 @@ export default function ApplicationCaseFilePage() {
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+
+  const { data: decisionTrace } = useSWR<DecisionTraceResponse>(
+    id && activeTab === "eligibility" ? `/api/applications/${id}/decision-trace` : null,
+    () => getDecisionTrace(id)
+  );
+
+  const [proposedIncome, setProposedIncome] = useState<number>(800000);
+  const [replayResult, setReplayResult] = useState<any | null>(null);
+  const [isReplaying, setIsReplaying] = useState(false);
+
+  const handleDecisionReplay = async () => {
+    setIsReplaying(true);
+    try {
+      const res = await replayDecision(id, {
+        eligibility_rules: [
+          {
+            field: "annual_income",
+            condition: { "<=": [{ var: "annual_income" }, proposedIncome] },
+            failure_message: `Family income exceeds proposed policy limit of ₹${(proposedIncome / 100000).toFixed(1)} Lakhs`,
+          },
+        ],
+      });
+      setReplayResult(res);
+    } catch (err: any) {
+      console.error("Replay error", err);
+    } finally {
+      setIsReplaying(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -459,97 +491,396 @@ export default function ApplicationCaseFilePage() {
         </div>
       )}
 
-      {/* TAB 2: ELIGIBILITY EVALUATION */}
+      {/* TAB 2: ELIGIBILITY EVALUATION, DECISION PROVENANCE & DECISION REPLAY */}
       {activeTab === "eligibility" && (
-        <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-              <FileCheck2 className="w-4 h-4 text-emerald-600" /> Scheme Rule Engine Evaluation Matrix
-            </h3>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${eligibility_result?.passed ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}>
-              OVERALL: {eligibility_result?.passed ? "ELIGIBLE (PASS)" : "INELIGIBLE (FAIL)"}
-            </span>
-          </div>
-
-          {eligibility_result?.failed_rules && eligibility_result.failed_rules.length > 0 ? (
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-rose-800">Detected Rule Failures:</div>
-              {eligibility_result.failed_rules.map((rule, idx) => (
-                <div key={idx} className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1">
-                  <div className="font-bold text-rose-900 flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
-                    Field Rule: {rule.field}
-                  </div>
-                  <p className="text-rose-700">{rule.failure_message}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-2">
-              <div className="font-bold flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" /> All Scheme Rules Passed
+        <div className="space-y-6">
+          {/* Overall Verdict Banner */}
+          <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <FileCheck2 className="w-4 h-4 text-emerald-600" /> Scheme Rule Engine Evaluation Matrix
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Automated deterministic evaluation of applicant eligibility rules for {scheme?.code}.
+                </p>
               </div>
-              <p className="text-emerald-800">
-                Category ST == ST (PASS), Family Income ≤ ₹6.0L (PASS), Qualifying Marks ≥ 60% (PASS), Age Limit ≤ 36 (PASS).
-              </p>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${eligibility_result?.passed ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}>
+                OVERALL: {eligibility_result?.passed ? "ELIGIBLE (PASS)" : "INELIGIBLE (FAIL)"}
+              </span>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* TAB 3: DOCUMENTS & INTEGRATED VIEWER */}
-      {activeTab === "documents" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-stone-900">Uploaded Scheme Certificates</h3>
-            <span className="text-xs text-stone-500">Click &quot;View &amp; Inspect&quot; to open the Document Intelligence preview.</span>
+            {eligibility_result?.failed_rules && eligibility_result.failed_rules.length > 0 ? (
+              <div className="space-y-3">
+                <div className="text-xs font-bold text-rose-800">Detected Rule Failures:</div>
+                {eligibility_result.failed_rules.map((rule, idx) => (
+                  <div key={idx} className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1">
+                    <div className="font-bold text-rose-900 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      Field Rule: {rule.field}
+                    </div>
+                    <p className="text-rose-700">{rule.failure_message}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-2">
+                <div className="font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> All Mandatory Eligibility Rules Satisfied
+                </div>
+                <p className="text-emerald-800">
+                  Every scheme condition in the active declarative policy version has passed automated verification.
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {documents.map((doc) => (
-              <div key={doc.id} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <span className="font-mono text-[10px] uppercase font-bold text-stone-500 block">
-                      {doc.doc_type.replace(/_/g, " ")}
+          {/* Phase 8: DECISION TRACE & POLICY PROVENANCE */}
+          <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-[#de5c36]" /> Decision Trace &amp; Policy Provenance
+                </h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Auditable, explainable trace linking every decision to: Rule → Policy Version → Condition → Extracted Evidence → Supporting Document.
+                </p>
+              </div>
+              <span className="text-[11px] font-mono font-bold bg-stone-100 text-stone-700 px-2.5 py-1 rounded border border-stone-200">
+                Policy: {decisionTrace?.policy_version || `${scheme?.code}.v1`}
+              </span>
+            </div>
+
+            {decisionTrace ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider border-b border-stone-100 bg-stone-50/50">
+                      <th className="px-4 py-2.5">Rule ID</th>
+                      <th className="px-4 py-2.5">Field &amp; Condition</th>
+                      <th className="px-4 py-2.5">Applicant Declared</th>
+                      <th className="px-4 py-2.5">Extracted Evidence</th>
+                      <th className="px-4 py-2.5">Supporting Document</th>
+                      <th className="px-4 py-2.5 text-center">Verdict</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {decisionTrace.decision_trace.map((tr) => (
+                      <tr key={tr.rule_id} className="hover:bg-stone-50/60 transition">
+                        <td className="px-4 py-3 font-mono font-bold text-stone-800">{tr.rule_id}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-semibold text-stone-900 block">{tr.field}</span>
+                          <span className="font-mono text-[10px] text-stone-500 block truncate max-w-xs" title={JSON.stringify(tr.condition)}>
+                            {JSON.stringify(tr.condition)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-medium text-stone-800">
+                          {tr.declared_value !== null && tr.declared_value !== undefined
+                            ? String(tr.declared_value)
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 font-mono font-semibold text-stone-900">
+                          {tr.extracted_evidence_value !== null && tr.extracted_evidence_value !== undefined ? (
+                            <span className="bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-200">
+                              {String(tr.extracted_evidence_value)}
+                            </span>
+                          ) : (
+                            <span className="text-stone-400 italic">Self-declared</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {tr.supporting_document ? (
+                            <button
+                              onClick={() => {
+                                const doc = documents.find((d) => d.id === tr.supporting_document?.doc_id);
+                                if (doc) setSelectedDoc(doc);
+                              }}
+                              className="text-[#de5c36] hover:underline font-semibold flex items-center gap-1"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {tr.supporting_document.doc_name}
+                            </button>
+                          ) : (
+                            <span className="text-stone-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                              tr.status === "PASS"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-rose-100 text-rose-800"
+                            }`}
+                          >
+                            {tr.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center p-6 text-stone-400 text-xs">
+                Loading explainable decision trace...
+              </div>
+            )}
+          </div>
+
+          {/* Phase 22: DECISION REPLAY & POLICY TWIN */}
+          <div className="bg-gradient-to-br from-stone-900 via-stone-800 to-stone-900 text-white p-5 rounded-xl border border-stone-700 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-700 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-400" /> Decision Replay (Policy Twin)
+                </h3>
+                <p className="text-xs text-stone-300 mt-0.5">
+                  Simulate counterfactual policy changes against this applicant without modifying database records.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-stone-300">Proposed Income Cap (₹):</label>
+                <input
+                  type="number"
+                  value={proposedIncome}
+                  onChange={(e) => setProposedIncome(Number(e.target.value))}
+                  step="50000"
+                  className="w-32 px-2.5 py-1 text-xs bg-stone-800 border border-stone-600 rounded text-white font-mono"
+                />
+                <button
+                  onClick={handleDecisionReplay}
+                  disabled={isReplaying}
+                  className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded transition disabled:opacity-50"
+                >
+                  {isReplaying ? "Replaying..." : "Replay Decision"}
+                </button>
+              </div>
+            </div>
+
+            {replayResult && (
+              <div className="space-y-4 pt-2">
+                {/* 3-Way Comparison Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="p-3 bg-stone-800/90 rounded-lg border border-stone-700">
+                    <span className="text-[10px] text-stone-400 uppercase font-bold block">Historical Policy (At Submission)</span>
+                    <span className="text-base font-bold text-emerald-400 mt-1 block">
+                      {replayResult.historical_policy?.decision}
                     </span>
-                    <h4 className="text-xs font-bold text-stone-900 mt-0.5">{doc.doc_type}</h4>
+                    <span className="text-[10px] text-stone-400 font-mono">v{replayResult.historical_policy?.version}</span>
                   </div>
-                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${doc.status === "VERIFIED" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : doc.status === "DEFICIENT" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                    {doc.status}
-                  </span>
+
+                  <div className="p-3 bg-stone-800/90 rounded-lg border border-stone-700">
+                    <span className="text-[10px] text-stone-400 uppercase font-bold block">Current Active Policy</span>
+                    <span className="text-base font-bold text-emerald-400 mt-1 block">
+                      {replayResult.current_policy?.decision}
+                    </span>
+                    <span className="text-[10px] text-stone-400 font-mono">v{replayResult.current_policy?.version}</span>
+                  </div>
+
+                  <div className={`p-3 rounded-lg border ${replayResult.verdict_changed ? "bg-amber-950/80 border-amber-500 text-amber-200" : "bg-stone-800/90 border-stone-700 text-white"}`}>
+                    <span className="text-[10px] uppercase font-bold block opacity-75">Proposed Policy Twin</span>
+                    <span className={`text-base font-bold mt-1 block ${replayResult.proposed_policy?.decision === "ELIGIBLE" ? "text-emerald-400" : "text-rose-400"}`}>
+                      {replayResult.proposed_policy?.decision}
+                    </span>
+                    <span className="text-[10px] font-mono opacity-75">v{replayResult.proposed_policy?.version}</span>
+                  </div>
                 </div>
 
-                {doc.extracted_fields && (
-                  <div className="bg-stone-50 p-2.5 rounded border border-stone-200/80 text-[11px] space-y-1">
-                    <div className="font-bold text-stone-700 text-[10px] uppercase">OCR Extracted Fields</div>
-                    <pre className="text-stone-800 font-mono text-[10px] whitespace-pre-wrap">
-                      {JSON.stringify(doc.extracted_fields, null, 2)}
-                    </pre>
+                {/* Diff Explanation */}
+                {replayResult.rule_level_diff && replayResult.rule_level_diff.length > 0 && (
+                  <div className="p-3 bg-stone-800 rounded-lg border border-stone-700 text-xs space-y-2">
+                    <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-wider">
+                      Rule-Level Divergence Details
+                    </span>
+                    {replayResult.rule_level_diff.map((diff: any, idx: number) => (
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] border-t border-stone-700/60 pt-1.5 font-mono">
+                        <div>
+                          <span className="text-amber-300 font-bold">{diff.field}: </span>
+                          <span className="text-stone-300">Current: {diff.current_rule}</span> → <span className="text-emerald-300 font-bold">Proposed: {diff.proposed_rule}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${diff.verdict === "PASS" ? "bg-emerald-900/60 text-emerald-300 border border-emerald-700" : "bg-rose-900/60 text-rose-300 border border-rose-700"}`}>
+                          Verdict: {diff.verdict}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
-
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    onClick={() => setSelectedDoc(doc)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded text-xs font-semibold shadow-sm transition"
-                  >
-                    <Eye className="w-3.5 h-3.5" /> View &amp; Inspect Document
-                  </button>
-                  <button
-                    onClick={() => handleRunOCR(doc.id)}
-                    disabled={actionLoading}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-xs font-semibold transition"
-                    title="Run OCR & Extract"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Run OCR
-                  </button>
-                </div>
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
+
+      {/* TAB 3: DOCUMENTS, TRUST ASSESSMENT & EVIDENCE GRAPH (Phases 5 & 6) */}
+      {activeTab === "documents" && (
+        <div className="space-y-6">
+          {/* Phase 6: CROSS-DOCUMENT EVIDENCE CONSISTENCY GRAPH */}
+          {caseFile.evidence_graph && (
+            <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-emerald-600" /> Evidence Consistency Graph &amp; Cross-Document Verification
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Multi-document cross-referencing compares extracted entity values (name, income, category, dates) across all uploaded certificates.
+                  </p>
+                </div>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                    caseFile.evidence_graph.consistency_verdict === "PASS"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : caseFile.evidence_graph.consistency_verdict === "WARNING"
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-rose-50 text-rose-700 border-rose-200"
+                  }`}
+                >
+                  VERDICT: {caseFile.evidence_graph.consistency_verdict}
+                </span>
+              </div>
+
+              {/* Anomaly Alerts if any */}
+              {caseFile.evidence_graph.anomalies && caseFile.evidence_graph.anomalies.length > 0 ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs space-y-2">
+                  <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600" /> Detected Discrepancies in Supporting Evidence:
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-amber-800 text-[11px]">
+                    {caseFile.evidence_graph.anomalies.map((anom: string, idx: number) => (
+                      <li key={idx}>{anom}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{caseFile.evidence_graph.summary || "All extracted entities match consistently across uploaded certificates."}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Phase 5: DOCUMENT TRUST ASSESSMENT CARDS */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-stone-900">Uploaded Certificates &amp; Document Trust Assessments</h3>
+              <span className="text-xs text-stone-500">Every certificate is assessed across explainable signals (quality, name, authority, validity).</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {documents.map((doc) => {
+                const trust = doc.trust_assessment;
+
+                return (
+                  <div key={doc.id} className="bg-white p-4 rounded-xl border border-stone-200 shadow-sm space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="font-mono text-[10px] uppercase font-bold text-stone-500 block">
+                          {doc.doc_type.replace(/_/g, " ")}
+                        </span>
+                        <h4 className="text-xs font-bold text-stone-900 mt-0.5">{doc.doc_type}</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {trust && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-stone-100 text-stone-700 border border-stone-200">
+                            Trust: {trust.trust_score}/100
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded border ${
+                            doc.status === "VERIFIED"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : doc.status === "DEFICIENT"
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}
+                        >
+                          {doc.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Trust Signals Checklist */}
+                    {trust && trust.signals && (
+                      <div className="bg-stone-50 p-3 rounded-lg border border-stone-200/80 space-y-1.5 text-xs">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-1">
+                          Trust Signals Checklist
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-[11px]">
+                          {trust.signals.map((sig: any, sIdx: number) => (
+                            <div key={sIdx} className="flex items-center gap-1.5 text-stone-700">
+                              {sig.status === "PASS" ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                              ) : sig.status === "WARN" ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                              ) : (
+                                <X className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
+                              )}
+                              <span className="truncate" title={sig.message}>{sig.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {trust.explanation && (
+                          <div className="text-[10px] text-stone-500 pt-1 border-t border-stone-200/60 mt-1">
+                            Decision note: {trust.explanation}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Deficiencies if present */}
+                    {doc.deficiency_reasons && doc.deficiency_reasons.length > 0 && (
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 rounded text-xs text-rose-900 space-y-1">
+                        <div className="font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Deficiency Identified:
+                        </div>
+                        <ul className="list-disc list-inside text-[11px] text-rose-800">
+                          {doc.deficiency_reasons.map((r: any, rIdx: number) => (
+                            <li key={rIdx}>{typeof r === "string" ? r : r.message || JSON.stringify(r)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* OCR Extracted Fields */}
+                    {doc.extracted_fields && (
+                      <div className="bg-stone-50 p-2 rounded border border-stone-200/80 text-[10px]">
+                        <div className="font-bold text-stone-700 uppercase mb-1">Extracted Key Fields</div>
+                        <div className="grid grid-cols-2 gap-1 font-mono text-stone-800">
+                          {Object.entries(doc.extracted_fields).map(([k, v]) => (
+                            <div key={k} className="truncate">
+                              <span className="text-stone-500">{k}: </span>
+                              <span className="font-bold">{String(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={() => setSelectedDoc(doc)}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-stone-900 hover:bg-stone-800 text-white rounded text-xs font-semibold shadow-sm transition"
+                      >
+                        <Eye className="w-3.5 h-3.5" /> View &amp; Inspect Document
+                      </button>
+                      <button
+                        onClick={() => handleRunOCR(doc.id)}
+                        disabled={actionLoading}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-xs font-semibold transition"
+                        title="Run OCR & Extract"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Run OCR
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* TAB 4: CROSS-SCHEME CONFLICT */}
       {activeTab === "conflict" && (
@@ -725,6 +1056,32 @@ export default function ApplicationCaseFilePage() {
                     <span className="text-xs text-stone-500">Uploaded: {new Date(selectedDoc.uploaded_at).toLocaleDateString()}</span>
                   </div>
                 </div>
+
+                {selectedDoc.trust_assessment && (
+                  <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-stone-600 uppercase tracking-wider">Document Trust Signals</span>
+                      <span className="font-mono text-xs font-bold text-[#de5c36]">
+                        Trust: {selectedDoc.trust_assessment.trust_score}/100
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-xs">
+                      {selectedDoc.trust_assessment.signals?.map((sig: any, idx: number) => (
+                        <div key={idx} className="flex items-center justify-between text-[11px] py-1 border-b border-stone-200/50">
+                          <span className="text-stone-700">{sig.name}</span>
+                          <span className={`font-bold ${sig.status === "PASS" ? "text-emerald-700" : sig.status === "WARN" ? "text-amber-700" : "text-rose-700"}`}>
+                            {sig.status === "PASS" ? "✓ MATCH" : sig.status === "WARN" ? "⚠ REVIEW" : "✗ MISMATCH"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {selectedDoc.trust_assessment.explanation && (
+                      <p className="text-[11px] text-stone-700 bg-white p-2.5 rounded-lg border border-stone-200 mt-2">
+                        <strong>Reason:</strong> {selectedDoc.trust_assessment.explanation}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-stone-900 uppercase tracking-wider">OCR Extracted Intelligence</h4>

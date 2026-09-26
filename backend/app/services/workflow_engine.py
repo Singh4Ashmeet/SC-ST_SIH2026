@@ -220,8 +220,10 @@ class WorkflowEngine:
         from_state = application.current_state
         application.current_state = new_state
 
-        # Create audit log
-        audit_log = AuditLog(
+        # Create audit log with cryptographic hash chain
+        from app.services.audit_service import create_audit_log
+        create_audit_log(
+            db=self.db,
             application_id=application.id,
             scheme_id=scheme.id,
             actor_user_id=actor_user_id,
@@ -230,7 +232,6 @@ class WorkflowEngine:
             to_state=new_state,
             details=details or {},
         )
-        self.db.add(audit_log)
 
         self.db.commit()
         self.db.refresh(application)

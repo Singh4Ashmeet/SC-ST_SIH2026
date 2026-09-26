@@ -122,6 +122,41 @@ def extract_caste_certificate(text: str) -> Dict[str, Any]:
             "value": name_match.group(1).strip(),
             "confidence": "high",
         }
+    else:
+        cert_name_match = re.search(
+            r"(?:This is to certify that:?\s*(?:Shri/Smt\.?|Shri|Smt|Kumari|Mr\.?|Ms\.?)\s*)([A-Z][a-z]+(?: [A-Z][a-z]+)*)",
+            text,
+            re.IGNORECASE,
+        )
+        if cert_name_match:
+            fields["applicant_name"] = {
+                "value": cert_name_match.group(1).strip(),
+                "confidence": "high",
+            }
+
+    # Father's name
+    father_match = re.search(
+        r"(?:Son/Daughter of (?:Shri)?\s*)([A-Z][a-z]+(?: [A-Z][a-z]+)*)",
+        text,
+        re.IGNORECASE,
+    )
+    if father_match:
+        fields["father_name"] = {
+            "value": father_match.group(1).strip(),
+            "confidence": "high",
+        }
+
+    # Certificate Number
+    cert_no_match = re.search(
+        r"(?:Certificate No\.?|Cert No\.?)[:\s]*([A-Za-z0-9/-]+)",
+        text,
+        re.IGNORECASE,
+    )
+    if cert_no_match:
+        fields["certificate_number"] = {
+            "value": cert_no_match.group(1).strip(),
+            "confidence": "high",
+        }
 
     # Category (SC/ST/OBC)
     category_match = re.search(
@@ -140,6 +175,30 @@ def extract_caste_certificate(text: str) -> Dict[str, Any]:
             category = "OBC"
         fields["category"] = {
             "value": category,
+            "confidence": "high",
+        }
+
+    # Tribe name
+    tribe_match = re.search(r"belongs to the\s+([A-Za-z\s]+?)\s+tribe", text, re.IGNORECASE)
+    if tribe_match:
+        fields["tribe"] = {
+            "value": tribe_match.group(1).strip(),
+            "confidence": "high",
+        }
+
+    # District
+    district_match = re.search(r"District\s+([A-Za-z]+)", text, re.IGNORECASE)
+    if district_match:
+        fields["district"] = {
+            "value": district_match.group(1).strip(),
+            "confidence": "high",
+        }
+
+    # State
+    state_match = re.search(r"State of\s+([A-Za-z]+)", text, re.IGNORECASE)
+    if state_match:
+        fields["state"] = {
+            "value": state_match.group(1).strip(),
             "confidence": "high",
         }
 
@@ -184,6 +243,29 @@ def extract_income_certificate(text: str) -> Dict[str, Any]:
     if name_match:
         fields["applicant_name"] = {
             "value": name_match.group(1).strip(),
+            "confidence": "high",
+        }
+    else:
+        cert_name_match = re.search(
+            r"(?:This is to certify that:?\s*(?:Shri/Smt\.?|Shri|Smt|Kumari|Mr\.?|Ms\.?)\s*)([A-Z][a-z]+(?: [A-Z][a-z]+)*)",
+            text,
+            re.IGNORECASE,
+        )
+        if cert_name_match:
+            fields["applicant_name"] = {
+                "value": cert_name_match.group(1).strip(),
+                "confidence": "high",
+            }
+
+    # Certificate Number
+    cert_no_match = re.search(
+        r"(?:Certificate No\.?|Cert No\.?)[:\s]*([A-Za-z0-9/-]+)",
+        text,
+        re.IGNORECASE,
+    )
+    if cert_no_match:
+        fields["certificate_number"] = {
+            "value": cert_no_match.group(1).strip(),
             "confidence": "high",
         }
 
@@ -238,6 +320,7 @@ def extract_income_certificate(text: str) -> Dict[str, Any]:
             break
 
     return fields
+
 
 
 def extract_marksheet(text: str) -> Dict[str, Any]:

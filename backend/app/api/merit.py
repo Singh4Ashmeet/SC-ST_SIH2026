@@ -51,8 +51,10 @@ def run_merit_evaluation(
             detail=str(exc),
         ) from exc
 
-    # Create audit log
-    audit = AuditLog(
+    # Create audit log with cryptographic hash chain
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         scheme_id=scheme_id,
         actor_user_id=current_user.id,
         action="merit_evaluation_run",
@@ -61,7 +63,6 @@ def run_merit_evaluation(
             "top_score": evaluations[0].total_score if evaluations else 0,
         },
     )
-    db.add(audit)
     db.commit()
 
     return {

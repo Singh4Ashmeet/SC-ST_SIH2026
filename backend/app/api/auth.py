@@ -2,7 +2,7 @@
 Authentication API router: login, register, and current user info.
 """
 
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -155,6 +155,57 @@ def register(
     db.refresh(user)
 
     return UserMeResponse.model_validate(user)
+
+
+class ApplicantRegisterRequest(BaseModel):
+    """Applicant self-registration payload."""
+    email: EmailStr
+    password: str
+    full_name: str
+    phone: Optional[str] = None
+
+
+@router.post("/applicant/register", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
+def applicant_register(
+    request: ApplicantRegisterRequest,
+    db: Session = Depends(get_db),
+) -> LoginResponse:
+    """
+    Public self-registration for scholarship applicants.
+    Creates an APPLICANT user account and returns an authenticated JWT session.
+    """
+    existing = db.execute(
+        select(User).where(User.email == request.email)
+    ).scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address already exists. Please log in.",
+        )
+
+    user = User(
+        email=request.email,
+        hashed_password=hash_password(request.password),
+        full_name=request.full_name,
+        role=UserRole.APPLICANT,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    access_token = create_access_token(
+        user_id=user.id,
+        role=user.role.value,
+        expires_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+    )
+
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        role=user.role.value,
+        user_id=str(user.id),
+    )
 
 
 @router.get("/me", response_model=UserMeResponse)

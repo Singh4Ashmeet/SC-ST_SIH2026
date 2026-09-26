@@ -1,6 +1,90 @@
 {
   "scheme_code": "NFST",
   "version": 1,
+  "form_schema": {
+    "fields": [
+      {
+        "key": "applicant_name",
+        "label": "Full Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Full name as per official certificates",
+        "help_text": "Must match name on Caste and Income certificates"
+      },
+      {
+        "key": "applicant_email",
+        "label": "Email Address",
+        "type": "email",
+        "required": true,
+        "placeholder": "applicant@example.com",
+        "help_text": "All official correspondence and status alerts will be sent here"
+      },
+      {
+        "key": "applicant_phone",
+        "label": "Mobile Phone Number",
+        "type": "text",
+        "required": true,
+        "placeholder": "+91-9876543210",
+        "help_text": "10-digit mobile number linked to official communications"
+      },
+      {
+        "key": "age",
+        "label": "Applicant Age (Years)",
+        "type": "number",
+        "required": true,
+        "placeholder": "e.g. 26",
+        "help_text": "Must be 36 years or below as of application date"
+      },
+      {
+        "key": "annual_income",
+        "label": "Annual Family Income (INR)",
+        "type": "number",
+        "required": true,
+        "placeholder": "e.g. 480000",
+        "help_text": "Must not exceed INR 6,00,000 as per latest revenue certificate"
+      },
+      {
+        "key": "category",
+        "label": "Social Category",
+        "type": "select",
+        "required": true,
+        "options": ["ST"],
+        "help_text": "Scheme is specifically for Scheduled Tribe candidates"
+      },
+      {
+        "key": "qualification",
+        "label": "Highest Qualifying Degree",
+        "type": "select",
+        "required": true,
+        "options": ["Post-Graduate", "M.Phil", "Master of Science", "Master of Arts", "Master of Technology", "Other"],
+        "help_text": "Minimum qualifying examination completed"
+      },
+      {
+        "key": "university",
+        "label": "Admitted University / Institute",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Jawaharlal Nehru University, Delhi",
+        "help_text": "UGC-recognized university where Ph.D/M.Phil is registered"
+      },
+      {
+        "key": "percentage",
+        "label": "Qualifying Examination Percentage",
+        "type": "number",
+        "required": true,
+        "placeholder": "e.g. 74.5",
+        "help_text": "Aggregate percentage scored in Master's degree"
+      },
+      {
+        "key": "admission_confirmed",
+        "label": "Admission Confirmed into M.Phil / Ph.D?",
+        "type": "select",
+        "required": true,
+        "options": ["Yes", "No"],
+        "help_text": "Bonafide admission confirmed letter must be submitted"
+      }
+    ]
+  },
   "eligibility_rules": [
     {
       "field": "age",

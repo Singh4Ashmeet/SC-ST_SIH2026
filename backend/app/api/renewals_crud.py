@@ -55,7 +55,9 @@ def update_renewal(
     app_obj = db.query(Application).filter(Application.id == renewal.application_id).first()
     scheme_id = app_obj.scheme_id if app_obj else None
 
-    audit_log = AuditLog(
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
         application_id=renewal.application_id,
         scheme_id=scheme_id,
         actor_user_id=current_user.id,
@@ -71,7 +73,6 @@ def update_renewal(
             "remarks": renewal.remarks,
         },
     )
-    db.add(audit_log)
     db.commit()
     db.refresh(renewal)
     return renewal

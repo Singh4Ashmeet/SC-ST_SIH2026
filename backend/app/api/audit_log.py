@@ -72,6 +72,9 @@ def list_audit_logs(
     }
 
 
+from app.services.audit_service import verify_hash_chain, simulate_tampering, restore_tampering
+
+
 @router.get("/verify")
 def verify_audit_log_integrity(
     current_user: Annotated[User, Depends(require_any_role)],
@@ -81,31 +84,28 @@ def verify_audit_log_integrity(
     Cryptographically verify the tamper-evident SHA-256 hash chain of the audit log.
     Ensures no audit entries have been altered, deleted, or inserted out of order.
     """
-    import hashlib
-    import json
+    return verify_hash_chain(db)
 
-    logs = db.execute(select(AuditLog).order_by(AuditLog.created_at.asc())).scalars().all()
 
-    previous_hash = "GENESIS_BLOCK_HASH_YOJANA_SETU_2026"
-    tampered_entry_id = None
-    is_valid = True
+@router.post("/simulate-tamper")
+def simulate_audit_tampering(
+    current_user: Annotated[User, Depends(require_any_role)],
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Demo simulation for hackathon judges: deliberately alter an audit record
+    to showcase instant cryptographic tamper detection by the SHA-256 hash chain.
+    """
+    return simulate_tampering(db)
 
-    for log in logs:
-        # Recompute expected hash
-        payload = f"{previous_hash}|{log.id}|{log.action}|{log.from_state or ''}|{log.to_state or ''}|{json.dumps(log.details or {}, sort_keys=True)}"
-        expected_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
-        if log.current_hash and log.current_hash != expected_hash:
-            is_valid = False
-            tampered_entry_id = str(log.id)
-            break
+@router.post("/restore")
+def restore_audit_chain(
+    current_user: Annotated[User, Depends(require_any_role)],
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Restore the audit hash chain to a pristine, fully verified state after tamper demonstration.
+    """
+    return restore_tampering(db)
 
-        previous_hash = log.current_hash or expected_hash
-
-    return {
-        "audit_integrity": "VERIFIED" if is_valid else "TAMPER_DETECTED",
-        "total_events_verified": len(logs),
-        "tamper_detected": not is_valid,
-        "tampered_entry_id": tampered_entry_id,
-        "hash_algorithm": "SHA-256 Chain",
-    }

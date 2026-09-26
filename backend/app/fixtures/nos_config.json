@@ -1,6 +1,89 @@
 {
   "scheme_code": "NOS",
   "version": 1,
+  "form_schema": {
+    "fields": [
+      {
+        "key": "applicant_name",
+        "label": "Full Name",
+        "type": "text",
+        "required": true,
+        "placeholder": "Full name as in Passport",
+        "help_text": "Must match name on Passport and University Admission Offer"
+      },
+      {
+        "key": "applicant_email",
+        "label": "Email Address",
+        "type": "email",
+        "required": true,
+        "placeholder": "applicant@example.com",
+        "help_text": "Official communications for National Overseas Scholarship"
+      },
+      {
+        "key": "applicant_phone",
+        "label": "Mobile Phone Number",
+        "type": "text",
+        "required": true,
+        "placeholder": "+91-9876543210",
+        "help_text": "Active mobile phone number"
+      },
+      {
+        "key": "age",
+        "label": "Applicant Age (Years)",
+        "type": "number",
+        "required": true,
+        "placeholder": "e.g. 28",
+        "help_text": "Must be 35 years or below"
+      },
+      {
+        "key": "annual_income",
+        "label": "Annual Family Income (INR)",
+        "type": "number",
+        "required": true,
+        "placeholder": "e.g. 550000",
+        "help_text": "Total family annual income from all sources"
+      },
+      {
+        "key": "category",
+        "label": "Social Category",
+        "type": "select",
+        "required": true,
+        "options": ["ST"],
+        "help_text": "Scheduled Tribe category confirmation"
+      },
+      {
+        "key": "university_abroad",
+        "label": "Foreign Admitted University",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. University of Oxford / Imperial College London",
+        "help_text": "QS World Ranked Top 500 foreign institution"
+      },
+      {
+        "key": "course",
+        "label": "Enrolled Course of Study",
+        "type": "text",
+        "required": true,
+        "placeholder": "e.g. Master of Science in Data Engineering",
+        "help_text": "Post Graduate / Ph.D program abroad"
+      },
+      {
+        "key": "qualifying_exam_percent",
+        "label": "Qualifying Degree Aggregate Percentage",
+        "type": "number",
+        "required": true,
+        "placeholder": "e.g. 68.5",
+        "help_text": "Minimum 60% aggregate marks required in qualifying degree"
+      },
+      {
+        "key": "admission_confirmed",
+        "label": "Unconditional Admission Confirmed?",
+        "type": "boolean",
+        "required": true,
+        "help_text": "Select if you possess an unconditional foreign university admission letter"
+      }
+    ]
+  },
   "eligibility_rules": [
     {
       "field": "qualifying_exam_percent",
