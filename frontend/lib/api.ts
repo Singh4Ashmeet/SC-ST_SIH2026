@@ -361,13 +361,21 @@ export async function getAuditLogs(params?: {
 
 export interface AuditVerificationResult {
   status: string;
-  audit_integrity: string;
-  events_checked: number;
-  total_events_verified: number;
-  broken_links: number;
-  invalid_hashes: number;
-  tamper_detected: boolean;
+  audit_integrity?: string;
+  is_valid: boolean;
+  message?: string;
+  total_events: number;
+  events_checked?: number;
+  total_events_verified?: number;
+  broken_links?: number;
+  broken_links_count: number;
+  invalid_hashes?: number;
+  invalid_hashes_count: number;
+  tamper_detected?: boolean;
   tampered_entry_id?: string | null;
+  first_broken_log_id?: string | null;
+  expected_hash?: string | null;
+  found_hash?: string | null;
   first_broken_event?: {
     id: string;
     action: string;
@@ -375,7 +383,7 @@ export interface AuditVerificationResult {
     expected_hash?: string;
     found_hash?: string;
   } | null;
-  hash_algorithm: string;
+  hash_algorithm?: string;
 }
 
 export async function verifyAuditLog(): Promise<AuditVerificationResult> {
@@ -832,18 +840,6 @@ export async function getCaseFile(applicationId: string): Promise<CaseFileData> 
 }
 
 // ── Audit Cryptographic Hash Chain Verification & Tamper Demo ───────────────
-
-export interface AuditVerificationResult {
-  status: "VERIFIED" | "TAMPER_DETECTED" | "CORRUPTED";
-  is_valid: boolean;
-  total_events: number;
-  broken_links_count: number;
-  invalid_hashes_count: number;
-  first_broken_log_id: string | null;
-  expected_hash: string | null;
-  found_hash: string | null;
-  message: string;
-}
 
 export async function verifyAuditHashChain(): Promise<AuditVerificationResult> {
   return apiFetch<AuditVerificationResult>("/api/audit-log/verify");

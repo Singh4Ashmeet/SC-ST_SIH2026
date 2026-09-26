@@ -117,12 +117,24 @@ def verify_hash_chain(db: Session) -> Dict[str, Any]:
     return {
         "status": "VERIFIED" if is_valid else "TAMPER_DETECTED",
         "audit_integrity": "VERIFIED" if is_valid else "TAMPER_DETECTED",
+        "is_valid": is_valid,
+        "message": (
+            "All audit events cryptographically verified with unbroken SHA-256 hash chain."
+            if is_valid
+            else f"Integrity violation detected! Event {tampered_entry_id} hash does not match computed chain hash."
+        ),
+        "total_events": len(logs),
         "events_checked": len(logs),
         "total_events_verified": len(logs),
         "broken_links": broken_links,
+        "broken_links_count": broken_links,
         "invalid_hashes": invalid_hashes,
+        "invalid_hashes_count": invalid_hashes,
         "tamper_detected": not is_valid,
         "tampered_entry_id": tampered_entry_id,
+        "first_broken_log_id": tampered_entry_id,
+        "expected_hash": expected_hash_val,
+        "found_hash": found_hash_val,
         "first_broken_event": {
             "id": str(first_broken_event.id),
             "action": first_broken_event.action,
@@ -154,7 +166,10 @@ def simulate_tampering(db: Session) -> Dict[str, Any]:
     return {
         "message": "Tampering simulated successfully on audit event",
         "tampered_event_id": str(log.id),
+        "tampered_log_id": str(log.id),
         "action": log.action,
+        "original_action": log.action,
+        "tampered_action": log.action,
         "tampered_field": "details._tampered_flag",
         "instruction": "Now call GET /api/audit-log/verify to observe cryptographic detection.",
     }
@@ -178,7 +193,11 @@ def restore_tampering(db: Session) -> Dict[str, Any]:
         l.current_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         prev = l.current_hash
     db.commit()
-    return {"message": "Audit chain restored to pristine state", "repaired_count": len(logs)}
+    return {
+        "message": "Audit chain restored to pristine state",
+        "repaired_count": len(logs),
+        "restored_log_id": str(logs[-1].id) if logs else "",
+    }
 
 
 def recompute_all_hashes(db: Session) -> int:
