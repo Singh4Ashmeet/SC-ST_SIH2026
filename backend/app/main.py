@@ -41,12 +41,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from fastapi.middleware.gzip import GZipMiddleware
+from app.core.cache import cache
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_ORIGIN],
+    allow_origins=[
+        settings.FRONTEND_ORIGIN,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,6 +74,10 @@ app.include_router(api_router)
 @app.get("/health")
 def health_check():
     """Return service health and database connectivity status."""
+    cached_health = cache.get("health_check")
+    if cached_health:
+        return cached_health
+
     db_status = "not connected"
     try:
         with engine.connect() as conn:
@@ -71,4 +86,6 @@ def health_check():
     except Exception:
         db_status = "not connected"
 
-    return {"status": "ok", "db": db_status}
+    res = {"status": "ok", "db": db_status}
+    cache.set("health_check", res, ttl=5)
+    return res

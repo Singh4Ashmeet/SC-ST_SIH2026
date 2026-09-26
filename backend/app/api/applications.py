@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.cache import cache
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_any_role
 from app.models.application import Application
@@ -40,6 +41,11 @@ def list_applications(
 
     Any authenticated role can access.
     """
+    cache_key = f"apps:list:{scheme_id}:{current_state}:{page}:{page_size}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query = db.query(Application)
 
     if scheme_id:
@@ -48,7 +54,8 @@ def list_applications(
         query = query.filter(Application.current_state == current_state)
 
     offset = (page - 1) * page_size
-    applications = query.order_by(Application.created_at.desc()).offset(offset).limit(page_size).all()
+    applications = list(query.order_by(Application.created_at.desc()).offset(offset).limit(page_size).all())
+    cache.set(cache_key, applications, ttl=10)
     return applications
 
 

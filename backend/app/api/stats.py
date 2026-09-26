@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.cache import cache
 from app.core.database import get_db
 from app.core.deps import require_any_role
 from app.models.application import Application
@@ -54,6 +55,11 @@ class StatsOverview(BaseModel):
 
 def _compute_stats(db: Session, scheme_id: Optional[uuid.UUID] = None) -> Dict[str, Any]:
     """Compute aggregate or scheme-scoped platform statistics."""
+    cache_key = f"stats:{scheme_id or 'overview'}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     # 1. Total applications
     app_query = db.query(Application)
     if scheme_id:
@@ -187,7 +193,7 @@ def _compute_stats(db: Session, scheme_id: Optional[uuid.UUID] = None) -> Dict[s
         for log in recent_logs
     ]
 
-    return {
+    res = {
         "total_applications": total_applications,
         "applications_by_state": applications_by_state,
         "applications_by_scheme": applications_by_scheme,
@@ -198,6 +204,8 @@ def _compute_stats(db: Session, scheme_id: Optional[uuid.UUID] = None) -> Dict[s
         "pending_renewals_count": pending_renewals_count,
         "recent_activity": recent_activity,
     }
+    cache.set(cache_key, res, ttl=10)
+    return res
 
 
 @router.get(

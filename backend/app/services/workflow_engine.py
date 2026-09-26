@@ -47,11 +47,11 @@ def _build_state_machine_class(scheme_config: SchemeConfig) -> Type[StateMachine
     # Add states
     state_objects = {}
     for state in scheme_config.workflow_states:
-        if state.name in terminal_states:
-            state_obj = State(state.name, initial=False, final=True)
-        else:
-            state_obj = State(state.name, initial=(state.name == scheme_config.initial_state), final=False)
-        attrs[state.name] = state_obj
+        is_init = (state.name == scheme_config.initial_state)
+        is_fin = state.is_terminal
+        state_obj = State(state.name, value=state.name, initial=is_init, final=is_fin)
+        # Prefix with state_ to prevent collision with trigger names matching state names (e.g. 'disbursed')
+        attrs[f"state_{state.name}"] = state_obj
         state_objects[state.name] = state_obj
 
     # Build transitions using State.to() method
@@ -66,16 +66,16 @@ def _build_state_machine_class(scheme_config: SchemeConfig) -> Type[StateMachine
         to_state_obj = state_objects[to_state]
 
         # Create transition using State.to()
-        trans = from_state_obj.to(to_state_obj, event=trigger)
+        trans = from_state_obj.to(to_state_obj)
 
         if trigger in transitions_by_trigger:
             transitions_by_trigger[trigger] |= trans
         else:
             transitions_by_trigger[trigger] = trans
 
-    # Add transitions to class attributes with a prefix to avoid conflicts with state names
+    # Add transitions to class attributes using trigger name
     for trigger, trans_list in transitions_by_trigger.items():
-        attrs[f"trigger_{trigger}"] = trans_list
+        attrs[trigger] = trans_list
 
     # Create the dynamic class
     DynamicMachine = type(f"SchemeStateMachine_{scheme_config.scheme_code}", (StateMachine,), attrs)
@@ -104,10 +104,16 @@ class WorkflowEngine:
         from app.services.scheme_config_validator import validate_scheme_config
         return validate_scheme_config(scheme.config)
 
-    def _get_state_machine(self, scheme: Scheme) -> StateMachine:
+    def _get_state_machine(self, scheme: Scheme, initial_state: Optional[str] = None) -> StateMachine:
         """Build a state machine instance for the scheme's config."""
         config = self._get_scheme_config(scheme)
-        return build_state_machine(config)
+        machine_class = _build_state_machine_class(config)
+        if initial_state:
+            class StateModel:
+                def __init__(self, s):
+                    self.state = s
+            return machine_class(StateModel(initial_state))
+        return machine_class()
 
     def get_current_state(self, application: Application) -> str:
         """Return the application's current state."""
@@ -195,13 +201,11 @@ class WorkflowEngine:
             pass  # Role verification happens at API layer
 
         # Build state machine and attempt transition
-        machine = self._get_state_machine(scheme)
-        # Set the current state on the machine
-        machine.model.state = current_state
+        machine = self._get_state_machine(scheme, initial_state=current_state)
 
         try:
-            machine.send(trigger)
-        except TransitionNotAllowed as exc:
+            getattr(machine, trigger)()
+        except Exception as exc:
             raise InvalidTransitionError(
                 f"Cannot apply trigger '{trigger}' from state '{current_state}': {exc}",
                 current_state=current_state,

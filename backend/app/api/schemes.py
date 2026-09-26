@@ -12,6 +12,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.cache import cache
 from app.core.database import get_db
 from app.core.deps import (
     get_current_user,
@@ -185,35 +186,40 @@ def create_scheme(
 
     db.commit()
     db.refresh(scheme)
+    cache.clear_prefix("schemes:")
     return scheme
 
 
 @router.get("", response_model=List[SchemeRead])
 def list_schemes(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> List[Scheme]:
     """List all schemes, optionally filtered by is_active.
 
-    Requires any authenticated role.
+    Publicly accessible to allow students/applicants to view available schemes.
     """
+    cache_key = f"schemes:list:{is_active}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     query = select(Scheme)
     if is_active is not None:
         query = query.where(Scheme.is_active == is_active)
-    schemes = db.execute(query).scalars().all()
-    return list(schemes)
+    schemes = list(db.execute(query).scalars().all())
+    cache.set(cache_key, schemes, ttl=30)
+    return schemes
 
 
 @router.get("/{scheme_id}", response_model=SchemeRead)
 def get_scheme(
     scheme_id: UUID,
-    current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> Scheme:
     """Fetch a scheme by ID.
 
-    Requires any authenticated role.
+    Publicly accessible to allow students/applicants to view scheme details.
     Returns 404 if not found.
     """
     scheme = db.execute(
@@ -230,14 +236,12 @@ def get_scheme(
 @router.get("/by-code/{code}", response_model=SchemeRead)
 def get_scheme_by_code(
     code: str,
-    current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db)
 ) -> Scheme:
     """Fetch a scheme by code.
 
-    Requires any authenticated role.
+    Publicly accessible to allow workflow/eligibility engine lookups.
     Returns 404 if not found.
-    Used internally by workflow/eligibility engines.
     """
     scheme = db.execute(
         select(Scheme).where(Scheme.code == code)
