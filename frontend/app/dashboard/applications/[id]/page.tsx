@@ -46,6 +46,7 @@ import {
   Sparkles,
   RefreshCw,
   Send,
+  ExternalLink,
 } from "lucide-react";
 
 function StatusBadge({ status }: { status: string }) {
@@ -1052,13 +1053,37 @@ export default function ApplicationCaseFilePage() {
 
             {/* Split Body */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-y-auto divide-y md:divide-y-0 md:divide-x divide-stone-200">
-              {/* Left: Preview */}
-              <div className="p-4 bg-stone-100 flex items-center justify-center min-h-[350px]">
-                <iframe
-                  src={selectedDoc.download_url}
-                  className="w-full h-full min-h-[350px] border border-stone-300 rounded bg-white shadow-inner"
-                  title={selectedDoc.doc_type}
-                />
+              {/* Left: Document Preview */}
+              <div className="p-4 bg-stone-100 flex flex-col min-h-[420px]">
+                {(() => {
+                  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                  const rawUrl = selectedDoc.download_url || `/api/applications/documents/${selectedDoc.id}/file`;
+                  const fileUrl = rawUrl.startsWith("http") ? rawUrl : `${apiBase}${rawUrl}`;
+                  return (
+                    <>
+                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-stone-200">
+                        <span className="text-xs font-semibold text-stone-600 flex items-center gap-1.5">
+                          <FileText className="w-3.5 h-3.5 text-stone-500" /> Digital File Artifact
+                        </span>
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-stone-300 rounded text-stone-700 hover:text-stone-900 hover:bg-stone-50 text-[11px] font-semibold shadow-sm transition"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-stone-500" /> Open in New Tab
+                        </a>
+                      </div>
+                      <div className="flex-1 w-full relative min-h-[360px] bg-white rounded-lg border border-stone-300 shadow-inner overflow-hidden flex items-center justify-center">
+                        <iframe
+                          src={fileUrl}
+                          className="w-full h-full min-h-[360px] border-0"
+                          title={selectedDoc.doc_type}
+                        />
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Right: Document Intelligence */}
