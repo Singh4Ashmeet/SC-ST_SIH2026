@@ -1,0 +1,14 @@
+{
+  "documents_checked": 368,
+  "missing_files": [],
+  "bad_pdfs": [],
+  "page_count_errors": [],
+  "category_counts": {
+    "clean": 185,
+    "deficient": 115,
+    "noisy": 68
+  },
+  "status": "PASS",
+  "post_overlay_integrity_bad_pdfs": [],
+  "post_overlay_status": "PASS"
+}

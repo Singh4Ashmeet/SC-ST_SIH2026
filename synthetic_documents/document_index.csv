@@ -1,0 +1,369 @@
+id,type,category,variant,path,state,district
+DOC0001,1,clean,clean,Type_01/clean/01_clean_001.pdf,Jharkhand,Garhwa
+DOC0002,1,clean,clean,Type_01/clean/01_clean_002.pdf,Odisha,Jharsuguda
+DOC0003,1,clean,clean,Type_01/clean/01_clean_003.pdf,Chhattisgarh,Jashpur
+DOC0004,1,clean,clean,Type_01/clean/01_clean_004.pdf,Madhya Pradesh,Gwalior
+DOC0005,1,clean,clean,Type_01/clean/01_clean_005.pdf,Maharashtra,Akola
+DOC0006,1,clean,clean,Type_01/clean/01_clean_006.pdf,Rajasthan,Alwar
+DOC0007,1,clean,clean,Type_01/clean/01_clean_007.pdf,Gujarat,Kachchh
+DOC0008,1,clean,clean,Type_01/clean/01_clean_008.pdf,West Bengal,Jalpaiguri
+DOC0009,1,clean,clean,Type_01/clean/01_clean_009.pdf,Assam,Goalpara
+DOC0010,1,clean,clean,Type_01/clean/01_clean_010.pdf,Arunachal Pradesh,Papum Pare
+DOC0011,1,clean,clean,Type_01/clean/01_clean_011.pdf,Manipur,Thoubal
+DOC0012,1,clean,clean,Type_01/clean/01_clean_012.pdf,Tripura,North Tripura
+DOC0013,1,clean,clean,Type_01/clean/01_clean_013.pdf,Jharkhand,Garhwa
+DOC0014,1,clean,clean,Type_01/clean/01_clean_014.pdf,Odisha,Jharsuguda
+DOC0015,1,clean,clean,Type_01/clean/01_clean_015.pdf,Chhattisgarh,Jashpur
+DOC0016,1,clean,clean,Type_01/clean/01_clean_016.pdf,Madhya Pradesh,Gwalior
+DOC0017,1,clean,clean,Type_01/clean/01_clean_017.pdf,Maharashtra,Akola
+DOC0018,1,clean,clean,Type_01/clean/01_clean_018.pdf,Rajasthan,Alwar
+DOC0019,1,clean,clean,Type_01/clean/01_clean_019.pdf,Gujarat,Kachchh
+DOC0020,1,clean,clean,Type_01/clean/01_clean_020.pdf,West Bengal,Jalpaiguri
+DOC0021,1,clean,clean,Type_01/clean/01_clean_021.pdf,Assam,Goalpara
+DOC0022,1,clean,clean,Type_01/clean/01_clean_022.pdf,Arunachal Pradesh,Papum Pare
+DOC0023,1,clean,clean,Type_01/clean/01_clean_023.pdf,Manipur,Thoubal
+DOC0024,1,clean,clean,Type_01/clean/01_clean_024.pdf,Tripura,North Tripura
+DOC0025,1,clean,clean,Type_01/clean/01_clean_025.pdf,Jharkhand,Garhwa
+DOC0026,1,clean,clean,Type_01/clean/01_clean_026.pdf,Odisha,Jharsuguda
+DOC0027,1,clean,clean,Type_01/clean/01_clean_027.pdf,Chhattisgarh,Jashpur
+DOC0028,1,clean,clean,Type_01/clean/01_clean_028.pdf,Madhya Pradesh,Gwalior
+DOC0029,1,clean,clean,Type_01/clean/01_clean_029.pdf,Maharashtra,Akola
+DOC0030,1,clean,clean,Type_01/clean/01_clean_030.pdf,Rajasthan,Alwar
+DOC0031,1,clean,clean,Type_01/clean/01_clean_031.pdf,Gujarat,Kachchh
+DOC0032,1,clean,clean,Type_01/clean/01_clean_032.pdf,West Bengal,Jalpaiguri
+DOC0033,1,clean,clean,Type_01/clean/01_clean_033.pdf,Assam,Goalpara
+DOC0034,1,clean,clean,Type_01/clean/01_clean_034.pdf,Arunachal Pradesh,Papum Pare
+DOC0035,1,clean,clean,Type_01/clean/01_clean_035.pdf,Manipur,Thoubal
+DOC0036,1,clean,clean,Type_01/clean/01_clean_036.pdf,Tripura,North Tripura
+DOC0037,1,clean,clean,Type_01/clean/01_clean_037.pdf,Jharkhand,Garhwa
+DOC0038,1,clean,clean,Type_01/clean/01_clean_038.pdf,Odisha,Jharsuguda
+DOC0039,1,clean,clean,Type_01/clean/01_clean_039.pdf,Chhattisgarh,Jashpur
+DOC0040,1,clean,clean,Type_01/clean/01_clean_040.pdf,Madhya Pradesh,Gwalior
+DOC0041,1,deficient,missing_field,Type_01/deficient/01_deficient_041.pdf,Maharashtra,Akola
+DOC0042,1,deficient,missing_field,Type_01/deficient/01_deficient_042.pdf,Rajasthan,Alwar
+DOC0043,1,deficient,missing_field,Type_01/deficient/01_deficient_043.pdf,Gujarat,Kachchh
+DOC0044,1,deficient,missing_field,Type_01/deficient/01_deficient_044.pdf,West Bengal,Jalpaiguri
+DOC0045,1,deficient,missing_field,Type_01/deficient/01_deficient_045.pdf,Assam,Goalpara
+DOC0046,1,deficient,missing_field,Type_01/deficient/01_deficient_046.pdf,Arunachal Pradesh,Papum Pare
+DOC0047,1,deficient,missing_field,Type_01/deficient/01_deficient_047.pdf,Manipur,Thoubal
+DOC0048,1,deficient,missing_field,Type_01/deficient/01_deficient_048.pdf,Tripura,North Tripura
+DOC0049,1,deficient,missing_field,Type_01/deficient/01_deficient_049.pdf,Jharkhand,Garhwa
+DOC0050,1,deficient,missing_field,Type_01/deficient/01_deficient_050.pdf,Odisha,Jharsuguda
+DOC0051,1,deficient,missing_field,Type_01/deficient/01_deficient_051.pdf,Chhattisgarh,Jashpur
+DOC0052,1,deficient,missing_field,Type_01/deficient/01_deficient_052.pdf,Madhya Pradesh,Gwalior
+DOC0053,1,deficient,expired,Type_01/deficient/01_deficient_053.pdf,Maharashtra,Akola
+DOC0054,1,deficient,expired,Type_01/deficient/01_deficient_054.pdf,Rajasthan,Alwar
+DOC0055,1,deficient,expired,Type_01/deficient/01_deficient_055.pdf,Gujarat,Kachchh
+DOC0056,1,deficient,expired,Type_01/deficient/01_deficient_056.pdf,West Bengal,Jalpaiguri
+DOC0057,1,deficient,expired,Type_01/deficient/01_deficient_057.pdf,Assam,Goalpara
+DOC0058,1,deficient,expired,Type_01/deficient/01_deficient_058.pdf,Arunachal Pradesh,Papum Pare
+DOC0059,1,deficient,expired,Type_01/deficient/01_deficient_059.pdf,Manipur,Thoubal
+DOC0060,1,deficient,format_invalid,Type_01/deficient/01_deficient_060.pdf,Tripura,North Tripura
+DOC0061,1,deficient,format_invalid,Type_01/deficient/01_deficient_061.pdf,Jharkhand,Garhwa
+DOC0062,1,deficient,format_invalid,Type_01/deficient/01_deficient_062.pdf,Odisha,Jharsuguda
+DOC0063,1,deficient,format_invalid,Type_01/deficient/01_deficient_063.pdf,Chhattisgarh,Jashpur
+DOC0064,1,deficient,format_invalid,Type_01/deficient/01_deficient_064.pdf,Madhya Pradesh,Gwalior
+DOC0065,1,deficient,format_invalid,Type_01/deficient/01_deficient_065.pdf,Maharashtra,Akola
+DOC0066,1,noisy,noisy,Type_01/noisy/01_noisy_066.pdf,Rajasthan,Alwar
+DOC0067,1,noisy,noisy,Type_01/noisy/01_noisy_067.pdf,Gujarat,Kachchh
+DOC0068,1,noisy,noisy,Type_01/noisy/01_noisy_068.pdf,West Bengal,Jalpaiguri
+DOC0069,1,noisy,noisy,Type_01/noisy/01_noisy_069.pdf,Assam,Goalpara
+DOC0070,1,noisy,noisy,Type_01/noisy/01_noisy_070.pdf,Arunachal Pradesh,Papum Pare
+DOC0071,1,noisy,noisy,Type_01/noisy/01_noisy_071.pdf,Manipur,Thoubal
+DOC0072,1,noisy,noisy,Type_01/noisy/01_noisy_072.pdf,Tripura,North Tripura
+DOC0073,1,noisy,noisy,Type_01/noisy/01_noisy_073.pdf,Jharkhand,Garhwa
+DOC0074,1,noisy,noisy,Type_01/noisy/01_noisy_074.pdf,Odisha,Jharsuguda
+DOC0075,1,noisy,noisy,Type_01/noisy/01_noisy_075.pdf,Chhattisgarh,Jashpur
+DOC0076,1,noisy,noisy,Type_01/noisy/01_noisy_076.pdf,Madhya Pradesh,Gwalior
+DOC0077,1,noisy,noisy,Type_01/noisy/01_noisy_077.pdf,Maharashtra,Akola
+DOC0078,1,noisy,noisy,Type_01/noisy/01_noisy_078.pdf,Rajasthan,Alwar
+DOC0079,1,noisy,noisy,Type_01/noisy/01_noisy_079.pdf,Gujarat,Kachchh
+DOC0080,1,noisy,noisy,Type_01/noisy/01_noisy_080.pdf,West Bengal,Jalpaiguri
+DOC0081,2,clean,clean,Type_02/clean/02_clean_081.pdf,Assam,Goalpara
+DOC0082,2,clean,clean,Type_02/clean/02_clean_082.pdf,Arunachal Pradesh,Papum Pare
+DOC0083,2,clean,clean,Type_02/clean/02_clean_083.pdf,Manipur,Thoubal
+DOC0084,2,clean,clean,Type_02/clean/02_clean_084.pdf,Tripura,North Tripura
+DOC0085,2,clean,clean,Type_02/clean/02_clean_085.pdf,Jharkhand,Garhwa
+DOC0086,2,clean,clean,Type_02/clean/02_clean_086.pdf,Odisha,Jharsuguda
+DOC0087,2,clean,clean,Type_02/clean/02_clean_087.pdf,Chhattisgarh,Jashpur
+DOC0088,2,clean,clean,Type_02/clean/02_clean_088.pdf,Madhya Pradesh,Gwalior
+DOC0089,2,clean,clean,Type_02/clean/02_clean_089.pdf,Maharashtra,Akola
+DOC0090,2,clean,clean,Type_02/clean/02_clean_090.pdf,Rajasthan,Alwar
+DOC0091,2,clean,clean,Type_02/clean/02_clean_091.pdf,Gujarat,Kachchh
+DOC0092,2,clean,clean,Type_02/clean/02_clean_092.pdf,West Bengal,Jalpaiguri
+DOC0093,2,clean,clean,Type_02/clean/02_clean_093.pdf,Assam,Goalpara
+DOC0094,2,clean,clean,Type_02/clean/02_clean_094.pdf,Arunachal Pradesh,Papum Pare
+DOC0095,2,clean,clean,Type_02/clean/02_clean_095.pdf,Manipur,Thoubal
+DOC0096,2,clean,clean,Type_02/clean/02_clean_096.pdf,Tripura,North Tripura
+DOC0097,2,clean,clean,Type_02/clean/02_clean_097.pdf,Jharkhand,Garhwa
+DOC0098,2,clean,clean,Type_02/clean/02_clean_098.pdf,Odisha,Jharsuguda
+DOC0099,2,clean,clean,Type_02/clean/02_clean_099.pdf,Chhattisgarh,Jashpur
+DOC0100,2,clean,clean,Type_02/clean/02_clean_100.pdf,Madhya Pradesh,Gwalior
+DOC0101,2,clean,clean,Type_02/clean/02_clean_101.pdf,Maharashtra,Akola
+DOC0102,2,clean,clean,Type_02/clean/02_clean_102.pdf,Rajasthan,Alwar
+DOC0103,2,clean,clean,Type_02/clean/02_clean_103.pdf,Gujarat,Kachchh
+DOC0104,2,clean,clean,Type_02/clean/02_clean_104.pdf,West Bengal,Jalpaiguri
+DOC0105,2,clean,clean,Type_02/clean/02_clean_105.pdf,Assam,Goalpara
+DOC0106,2,clean,clean,Type_02/clean/02_clean_106.pdf,Arunachal Pradesh,Papum Pare
+DOC0107,2,clean,clean,Type_02/clean/02_clean_107.pdf,Manipur,Thoubal
+DOC0108,2,clean,clean,Type_02/clean/02_clean_108.pdf,Tripura,North Tripura
+DOC0109,2,clean,clean,Type_02/clean/02_clean_109.pdf,Jharkhand,Garhwa
+DOC0110,2,clean,clean,Type_02/clean/02_clean_110.pdf,Odisha,Jharsuguda
+DOC0111,2,clean,clean,Type_02/clean/02_clean_111.pdf,Chhattisgarh,Jashpur
+DOC0112,2,clean,clean,Type_02/clean/02_clean_112.pdf,Madhya Pradesh,Gwalior
+DOC0113,2,clean,clean,Type_02/clean/02_clean_113.pdf,Maharashtra,Akola
+DOC0114,2,clean,clean,Type_02/clean/02_clean_114.pdf,Rajasthan,Alwar
+DOC0115,2,clean,clean,Type_02/clean/02_clean_115.pdf,Gujarat,Kachchh
+DOC0116,2,clean,clean,Type_02/clean/02_clean_116.pdf,West Bengal,Jalpaiguri
+DOC0117,2,clean,clean,Type_02/clean/02_clean_117.pdf,Assam,Goalpara
+DOC0118,2,clean,clean,Type_02/clean/02_clean_118.pdf,Arunachal Pradesh,Papum Pare
+DOC0119,2,clean,clean,Type_02/clean/02_clean_119.pdf,Manipur,Thoubal
+DOC0120,2,clean,clean,Type_02/clean/02_clean_120.pdf,Tripura,North Tripura
+DOC0121,2,deficient,negative_income,Type_02/deficient/02_deficient_121.pdf,Jharkhand,Garhwa
+DOC0122,2,deficient,negative_income,Type_02/deficient/02_deficient_122.pdf,Odisha,Jharsuguda
+DOC0123,2,deficient,negative_income,Type_02/deficient/02_deficient_123.pdf,Chhattisgarh,Jashpur
+DOC0124,2,deficient,negative_income,Type_02/deficient/02_deficient_124.pdf,Madhya Pradesh,Gwalior
+DOC0125,2,deficient,negative_income,Type_02/deficient/02_deficient_125.pdf,Maharashtra,Akola
+DOC0126,2,deficient,negative_income,Type_02/deficient/02_deficient_126.pdf,Rajasthan,Alwar
+DOC0127,2,deficient,negative_income,Type_02/deficient/02_deficient_127.pdf,Gujarat,Kachchh
+DOC0128,2,deficient,old_date,Type_02/deficient/02_deficient_128.pdf,West Bengal,Jalpaiguri
+DOC0129,2,deficient,old_date,Type_02/deficient/02_deficient_129.pdf,Assam,Goalpara
+DOC0130,2,deficient,old_date,Type_02/deficient/02_deficient_130.pdf,Arunachal Pradesh,Papum Pare
+DOC0131,2,deficient,old_date,Type_02/deficient/02_deficient_131.pdf,Manipur,Thoubal
+DOC0132,2,deficient,old_date,Type_02/deficient/02_deficient_132.pdf,Tripura,North Tripura
+DOC0133,2,deficient,old_date,Type_02/deficient/02_deficient_133.pdf,Jharkhand,Garhwa
+DOC0134,2,deficient,missing_authority,Type_02/deficient/02_deficient_134.pdf,Odisha,Jharsuguda
+DOC0135,2,deficient,missing_authority,Type_02/deficient/02_deficient_135.pdf,Chhattisgarh,Jashpur
+DOC0136,2,deficient,missing_authority,Type_02/deficient/02_deficient_136.pdf,Madhya Pradesh,Gwalior
+DOC0137,2,deficient,missing_authority,Type_02/deficient/02_deficient_137.pdf,Maharashtra,Akola
+DOC0138,2,deficient,missing_authority,Type_02/deficient/02_deficient_138.pdf,Rajasthan,Alwar
+DOC0139,2,deficient,missing_authority,Type_02/deficient/02_deficient_139.pdf,Gujarat,Kachchh
+DOC0140,2,deficient,amount_mismatch,Type_02/deficient/02_deficient_140.pdf,West Bengal,Jalpaiguri
+DOC0141,2,deficient,amount_mismatch,Type_02/deficient/02_deficient_141.pdf,Assam,Goalpara
+DOC0142,2,deficient,amount_mismatch,Type_02/deficient/02_deficient_142.pdf,Arunachal Pradesh,Papum Pare
+DOC0143,2,deficient,amount_mismatch,Type_02/deficient/02_deficient_143.pdf,Manipur,Thoubal
+DOC0144,2,deficient,amount_mismatch,Type_02/deficient/02_deficient_144.pdf,Tripura,North Tripura
+DOC0145,2,deficient,amount_mismatch,Type_02/deficient/02_deficient_145.pdf,Jharkhand,Garhwa
+DOC0146,2,noisy,noisy,Type_02/noisy/02_noisy_146.pdf,Odisha,Jharsuguda
+DOC0147,2,noisy,noisy,Type_02/noisy/02_noisy_147.pdf,Chhattisgarh,Jashpur
+DOC0148,2,noisy,noisy,Type_02/noisy/02_noisy_148.pdf,Madhya Pradesh,Gwalior
+DOC0149,2,noisy,noisy,Type_02/noisy/02_noisy_149.pdf,Maharashtra,Akola
+DOC0150,2,noisy,noisy,Type_02/noisy/02_noisy_150.pdf,Rajasthan,Alwar
+DOC0151,2,noisy,noisy,Type_02/noisy/02_noisy_151.pdf,Gujarat,Kachchh
+DOC0152,2,noisy,noisy,Type_02/noisy/02_noisy_152.pdf,West Bengal,Jalpaiguri
+DOC0153,2,noisy,noisy,Type_02/noisy/02_noisy_153.pdf,Assam,Goalpara
+DOC0154,2,noisy,noisy,Type_02/noisy/02_noisy_154.pdf,Arunachal Pradesh,Papum Pare
+DOC0155,2,noisy,noisy,Type_02/noisy/02_noisy_155.pdf,Manipur,Thoubal
+DOC0156,2,noisy,noisy,Type_02/noisy/02_noisy_156.pdf,Tripura,North Tripura
+DOC0157,2,noisy,noisy,Type_02/noisy/02_noisy_157.pdf,Jharkhand,Garhwa
+DOC0158,2,noisy,noisy,Type_02/noisy/02_noisy_158.pdf,Odisha,Jharsuguda
+DOC0159,2,noisy,noisy,Type_02/noisy/02_noisy_159.pdf,Chhattisgarh,Jashpur
+DOC0160,2,noisy,noisy,Type_02/noisy/02_noisy_160.pdf,Madhya Pradesh,Gwalior
+DOC0161,3,clean,clean,Type_03/clean/03_clean_161.pdf,Maharashtra,Akola
+DOC0162,3,clean,clean,Type_03/clean/03_clean_162.pdf,Rajasthan,Alwar
+DOC0163,3,clean,clean,Type_03/clean/03_clean_163.pdf,Gujarat,Kachchh
+DOC0164,3,clean,clean,Type_03/clean/03_clean_164.pdf,West Bengal,Jalpaiguri
+DOC0165,3,clean,clean,Type_03/clean/03_clean_165.pdf,Assam,Goalpara
+DOC0166,3,clean,clean,Type_03/clean/03_clean_166.pdf,Arunachal Pradesh,Papum Pare
+DOC0167,3,clean,clean,Type_03/clean/03_clean_167.pdf,Manipur,Thoubal
+DOC0168,3,clean,clean,Type_03/clean/03_clean_168.pdf,Tripura,North Tripura
+DOC0169,3,clean,clean,Type_03/clean/03_clean_169.pdf,Jharkhand,Garhwa
+DOC0170,3,clean,clean,Type_03/clean/03_clean_170.pdf,Odisha,Jharsuguda
+DOC0171,3,clean,clean,Type_03/clean/03_clean_171.pdf,Chhattisgarh,Jashpur
+DOC0172,3,clean,clean,Type_03/clean/03_clean_172.pdf,Madhya Pradesh,Gwalior
+DOC0173,3,clean,clean,Type_03/clean/03_clean_173.pdf,Maharashtra,Akola
+DOC0174,3,clean,clean,Type_03/clean/03_clean_174.pdf,Rajasthan,Alwar
+DOC0175,3,clean,clean,Type_03/clean/03_clean_175.pdf,Gujarat,Kachchh
+DOC0176,3,clean,clean,Type_03/clean/03_clean_176.pdf,West Bengal,Jalpaiguri
+DOC0177,3,clean,clean,Type_03/clean/03_clean_177.pdf,Assam,Goalpara
+DOC0178,3,clean,clean,Type_03/clean/03_clean_178.pdf,Arunachal Pradesh,Papum Pare
+DOC0179,3,clean,clean,Type_03/clean/03_clean_179.pdf,Manipur,Thoubal
+DOC0180,3,clean,clean,Type_03/clean/03_clean_180.pdf,Tripura,North Tripura
+DOC0181,3,clean,clean,Type_03/clean/03_clean_181.pdf,Jharkhand,Garhwa
+DOC0182,3,clean,clean,Type_03/clean/03_clean_182.pdf,Odisha,Jharsuguda
+DOC0183,3,clean,clean,Type_03/clean/03_clean_183.pdf,Chhattisgarh,Jashpur
+DOC0184,3,clean,clean,Type_03/clean/03_clean_184.pdf,Madhya Pradesh,Gwalior
+DOC0185,3,clean,clean,Type_03/clean/03_clean_185.pdf,Maharashtra,Akola
+DOC0186,3,deficient,withheld,Type_03/deficient/03_deficient_186.pdf,Rajasthan,Alwar
+DOC0187,3,deficient,withheld,Type_03/deficient/03_deficient_187.pdf,Gujarat,Kachchh
+DOC0188,3,deficient,withheld,Type_03/deficient/03_deficient_188.pdf,West Bengal,Jalpaiguri
+DOC0189,3,deficient,withheld,Type_03/deficient/03_deficient_189.pdf,Assam,Goalpara
+DOC0190,3,deficient,withheld,Type_03/deficient/03_deficient_190.pdf,Arunachal Pradesh,Papum Pare
+DOC0191,3,deficient,withheld,Type_03/deficient/03_deficient_191.pdf,Manipur,Thoubal
+DOC0192,3,deficient,withheld,Type_03/deficient/03_deficient_192.pdf,Tripura,North Tripura
+DOC0193,3,deficient,withheld,Type_03/deficient/03_deficient_193.pdf,Jharkhand,Garhwa
+DOC0194,3,deficient,missing_university,Type_03/deficient/03_deficient_194.pdf,Odisha,Jharsuguda
+DOC0195,3,deficient,missing_university,Type_03/deficient/03_deficient_195.pdf,Chhattisgarh,Jashpur
+DOC0196,3,deficient,missing_university,Type_03/deficient/03_deficient_196.pdf,Madhya Pradesh,Gwalior
+DOC0197,3,deficient,missing_university,Type_03/deficient/03_deficient_197.pdf,Maharashtra,Akola
+DOC0198,3,deficient,missing_year,Type_03/deficient/03_deficient_198.pdf,Rajasthan,Alwar
+DOC0199,3,deficient,missing_year,Type_03/deficient/03_deficient_199.pdf,Gujarat,Kachchh
+DOC0200,3,deficient,missing_year,Type_03/deficient/03_deficient_200.pdf,West Bengal,Jalpaiguri
+DOC0201,3,noisy,noisy,Type_03/noisy/03_noisy_201.pdf,Assam,Goalpara
+DOC0202,3,noisy,noisy,Type_03/noisy/03_noisy_202.pdf,Arunachal Pradesh,Papum Pare
+DOC0203,3,noisy,noisy,Type_03/noisy/03_noisy_203.pdf,Manipur,Thoubal
+DOC0204,3,noisy,noisy,Type_03/noisy/03_noisy_204.pdf,Tripura,North Tripura
+DOC0205,3,noisy,noisy,Type_03/noisy/03_noisy_205.pdf,Jharkhand,Garhwa
+DOC0206,3,noisy,noisy,Type_03/noisy/03_noisy_206.pdf,Odisha,Jharsuguda
+DOC0207,3,noisy,noisy,Type_03/noisy/03_noisy_207.pdf,Chhattisgarh,Jashpur
+DOC0208,3,noisy,noisy,Type_03/noisy/03_noisy_208.pdf,Madhya Pradesh,Gwalior
+DOC0209,3,noisy,noisy,Type_03/noisy/03_noisy_209.pdf,Maharashtra,Akola
+DOC0210,3,noisy,noisy,Type_03/noisy/03_noisy_210.pdf,Rajasthan,Alwar
+DOC0211,4,clean,clean,Type_04/clean/04_clean_211.pdf,Gujarat,Kachchh
+DOC0212,4,clean,clean,Type_04/clean/04_clean_212.pdf,West Bengal,Jalpaiguri
+DOC0213,4,clean,clean,Type_04/clean/04_clean_213.pdf,Assam,Goalpara
+DOC0214,4,clean,clean,Type_04/clean/04_clean_214.pdf,Arunachal Pradesh,Papum Pare
+DOC0215,4,clean,clean,Type_04/clean/04_clean_215.pdf,Manipur,Thoubal
+DOC0216,4,clean,clean,Type_04/clean/04_clean_216.pdf,Tripura,North Tripura
+DOC0217,4,clean,clean,Type_04/clean/04_clean_217.pdf,Jharkhand,Garhwa
+DOC0218,4,clean,clean,Type_04/clean/04_clean_218.pdf,Odisha,Jharsuguda
+DOC0219,4,clean,clean,Type_04/clean/04_clean_219.pdf,Chhattisgarh,Jashpur
+DOC0220,4,clean,clean,Type_04/clean/04_clean_220.pdf,Madhya Pradesh,Gwalior
+DOC0221,4,clean,clean,Type_04/clean/04_clean_221.pdf,Maharashtra,Akola
+DOC0222,4,clean,clean,Type_04/clean/04_clean_222.pdf,Rajasthan,Alwar
+DOC0223,4,clean,clean,Type_04/clean/04_clean_223.pdf,Gujarat,Kachchh
+DOC0224,4,clean,clean,Type_04/clean/04_clean_224.pdf,West Bengal,Jalpaiguri
+DOC0225,4,clean,clean,Type_04/clean/04_clean_225.pdf,Assam,Goalpara
+DOC0226,4,clean,clean,Type_04/clean/04_clean_226.pdf,Arunachal Pradesh,Papum Pare
+DOC0227,4,clean,clean,Type_04/clean/04_clean_227.pdf,Manipur,Thoubal
+DOC0228,4,clean,clean,Type_04/clean/04_clean_228.pdf,Tripura,North Tripura
+DOC0229,4,clean,clean,Type_04/clean/04_clean_229.pdf,Jharkhand,Garhwa
+DOC0230,4,clean,clean,Type_04/clean/04_clean_230.pdf,Odisha,Jharsuguda
+DOC0231,4,clean,clean,Type_04/clean/04_clean_231.pdf,Chhattisgarh,Jashpur
+DOC0232,4,clean,clean,Type_04/clean/04_clean_232.pdf,Madhya Pradesh,Gwalior
+DOC0233,4,clean,clean,Type_04/clean/04_clean_233.pdf,Maharashtra,Akola
+DOC0234,4,clean,clean,Type_04/clean/04_clean_234.pdf,Rajasthan,Alwar
+DOC0235,4,clean,clean,Type_04/clean/04_clean_235.pdf,Gujarat,Kachchh
+DOC0236,4,deficient,missing_field,Type_04/deficient/04_deficient_236.pdf,West Bengal,Jalpaiguri
+DOC0237,4,deficient,missing_field,Type_04/deficient/04_deficient_237.pdf,Assam,Goalpara
+DOC0238,4,deficient,missing_field,Type_04/deficient/04_deficient_238.pdf,Arunachal Pradesh,Papum Pare
+DOC0239,4,deficient,missing_field,Type_04/deficient/04_deficient_239.pdf,Manipur,Thoubal
+DOC0240,4,deficient,missing_field,Type_04/deficient/04_deficient_240.pdf,Tripura,North Tripura
+DOC0241,4,deficient,cutoff,Type_04/deficient/04_deficient_241.pdf,Jharkhand,Garhwa
+DOC0242,4,deficient,cutoff,Type_04/deficient/04_deficient_242.pdf,Odisha,Jharsuguda
+DOC0243,4,deficient,cutoff,Type_04/deficient/04_deficient_243.pdf,Chhattisgarh,Jashpur
+DOC0244,4,deficient,cutoff,Type_04/deficient/04_deficient_244.pdf,Madhya Pradesh,Gwalior
+DOC0245,4,deficient,cutoff,Type_04/deficient/04_deficient_245.pdf,Maharashtra,Akola
+DOC0246,4,deficient,missing_authority,Type_04/deficient/04_deficient_246.pdf,Rajasthan,Alwar
+DOC0247,4,deficient,missing_authority,Type_04/deficient/04_deficient_247.pdf,Gujarat,Kachchh
+DOC0248,4,deficient,missing_authority,Type_04/deficient/04_deficient_248.pdf,West Bengal,Jalpaiguri
+DOC0249,4,deficient,missing_authority,Type_04/deficient/04_deficient_249.pdf,Assam,Goalpara
+DOC0250,4,deficient,missing_authority,Type_04/deficient/04_deficient_250.pdf,Arunachal Pradesh,Papum Pare
+DOC0251,4,noisy,noisy,Type_04/noisy/04_noisy_251.pdf,Manipur,Thoubal
+DOC0252,4,noisy,noisy,Type_04/noisy/04_noisy_252.pdf,Tripura,North Tripura
+DOC0253,4,noisy,noisy,Type_04/noisy/04_noisy_253.pdf,Jharkhand,Garhwa
+DOC0254,4,noisy,noisy,Type_04/noisy/04_noisy_254.pdf,Odisha,Jharsuguda
+DOC0255,4,noisy,noisy,Type_04/noisy/04_noisy_255.pdf,Chhattisgarh,Jashpur
+DOC0256,4,noisy,noisy,Type_04/noisy/04_noisy_256.pdf,Madhya Pradesh,Gwalior
+DOC0257,4,noisy,noisy,Type_04/noisy/04_noisy_257.pdf,Maharashtra,Akola
+DOC0258,4,noisy,noisy,Type_04/noisy/04_noisy_258.pdf,Rajasthan,Alwar
+DOC0259,4,noisy,noisy,Type_04/noisy/04_noisy_259.pdf,Gujarat,Kachchh
+DOC0260,4,noisy,noisy,Type_04/noisy/04_noisy_260.pdf,West Bengal,Jalpaiguri
+DOC0261,5,clean,clean,Type_05/clean/05_clean_261.pdf,Assam,Goalpara
+DOC0262,5,clean,clean,Type_05/clean/05_clean_262.pdf,Arunachal Pradesh,Papum Pare
+DOC0263,5,clean,clean,Type_05/clean/05_clean_263.pdf,Manipur,Thoubal
+DOC0264,5,clean,clean,Type_05/clean/05_clean_264.pdf,Tripura,North Tripura
+DOC0265,5,clean,clean,Type_05/clean/05_clean_265.pdf,Jharkhand,Garhwa
+DOC0266,5,clean,clean,Type_05/clean/05_clean_266.pdf,Odisha,Jharsuguda
+DOC0267,5,clean,clean,Type_05/clean/05_clean_267.pdf,Chhattisgarh,Jashpur
+DOC0268,5,clean,clean,Type_05/clean/05_clean_268.pdf,Madhya Pradesh,Gwalior
+DOC0269,5,clean,clean,Type_05/clean/05_clean_269.pdf,Maharashtra,Akola
+DOC0270,5,clean,clean,Type_05/clean/05_clean_270.pdf,Rajasthan,Alwar
+DOC0271,5,clean,clean,Type_05/clean/05_clean_271.pdf,Gujarat,Kachchh
+DOC0272,5,clean,clean,Type_05/clean/05_clean_272.pdf,West Bengal,Jalpaiguri
+DOC0273,5,clean,clean,Type_05/clean/05_clean_273.pdf,Assam,Goalpara
+DOC0274,5,clean,clean,Type_05/clean/05_clean_274.pdf,Arunachal Pradesh,Papum Pare
+DOC0275,5,clean,clean,Type_05/clean/05_clean_275.pdf,Manipur,Thoubal
+DOC0276,5,deficient,expired,Type_05/deficient/05_deficient_276.pdf,Tripura,North Tripura
+DOC0277,5,deficient,expired,Type_05/deficient/05_deficient_277.pdf,Jharkhand,Garhwa
+DOC0278,5,deficient,expired,Type_05/deficient/05_deficient_278.pdf,Odisha,Jharsuguda
+DOC0279,5,deficient,expired,Type_05/deficient/05_deficient_279.pdf,Chhattisgarh,Jashpur
+DOC0280,5,deficient,invalid_number,Type_05/deficient/05_deficient_280.pdf,Madhya Pradesh,Gwalior
+DOC0281,5,deficient,invalid_number,Type_05/deficient/05_deficient_281.pdf,Maharashtra,Akola
+DOC0282,5,deficient,invalid_number,Type_05/deficient/05_deficient_282.pdf,Rajasthan,Alwar
+DOC0283,5,deficient,missing_dob,Type_05/deficient/05_deficient_283.pdf,Gujarat,Kachchh
+DOC0284,5,deficient,missing_dob,Type_05/deficient/05_deficient_284.pdf,West Bengal,Jalpaiguri
+DOC0285,5,deficient,missing_dob,Type_05/deficient/05_deficient_285.pdf,Assam,Goalpara
+DOC0286,5,noisy,noisy,Type_05/noisy/05_noisy_286.pdf,Arunachal Pradesh,Papum Pare
+DOC0287,5,noisy,noisy,Type_05/noisy/05_noisy_287.pdf,Manipur,Thoubal
+DOC0288,5,noisy,noisy,Type_05/noisy/05_noisy_288.pdf,Tripura,North Tripura
+DOC0289,5,noisy,noisy,Type_05/noisy/05_noisy_289.pdf,Jharkhand,Garhwa
+DOC0290,5,noisy,noisy,Type_05/noisy/05_noisy_290.pdf,Odisha,Jharsuguda
+DOC0291,6,clean,clean,Type_06/clean/06_clean_291.pdf,Chhattisgarh,Jashpur
+DOC0292,6,clean,clean,Type_06/clean/06_clean_292.pdf,Madhya Pradesh,Gwalior
+DOC0293,6,clean,clean,Type_06/clean/06_clean_293.pdf,Maharashtra,Akola
+DOC0294,6,clean,clean,Type_06/clean/06_clean_294.pdf,Rajasthan,Alwar
+DOC0295,6,clean,clean,Type_06/clean/06_clean_295.pdf,Gujarat,Kachchh
+DOC0296,6,clean,clean,Type_06/clean/06_clean_296.pdf,West Bengal,Jalpaiguri
+DOC0297,6,clean,clean,Type_06/clean/06_clean_297.pdf,Assam,Goalpara
+DOC0298,6,clean,clean,Type_06/clean/06_clean_298.pdf,Arunachal Pradesh,Papum Pare
+DOC0299,6,clean,clean,Type_06/clean/06_clean_299.pdf,Manipur,Thoubal
+DOC0300,6,clean,clean,Type_06/clean/06_clean_300.pdf,Tripura,North Tripura
+DOC0301,6,clean,clean,Type_06/clean/06_clean_301.pdf,Jharkhand,Garhwa
+DOC0302,6,clean,clean,Type_06/clean/06_clean_302.pdf,Odisha,Jharsuguda
+DOC0303,6,clean,clean,Type_06/clean/06_clean_303.pdf,Chhattisgarh,Jashpur
+DOC0304,6,clean,clean,Type_06/clean/06_clean_304.pdf,Madhya Pradesh,Gwalior
+DOC0305,6,clean,clean,Type_06/clean/06_clean_305.pdf,Maharashtra,Akola
+DOC0306,6,deficient,conditional,Type_06/deficient/06_deficient_306.pdf,Rajasthan,Alwar
+DOC0307,6,deficient,conditional,Type_06/deficient/06_deficient_307.pdf,Gujarat,Kachchh
+DOC0308,6,deficient,conditional,Type_06/deficient/06_deficient_308.pdf,West Bengal,Jalpaiguri
+DOC0309,6,deficient,conditional,Type_06/deficient/06_deficient_309.pdf,Assam,Goalpara
+DOC0310,6,deficient,missing_programme,Type_06/deficient/06_deficient_310.pdf,Arunachal Pradesh,Papum Pare
+DOC0311,6,deficient,missing_programme,Type_06/deficient/06_deficient_311.pdf,Manipur,Thoubal
+DOC0312,6,deficient,missing_programme,Type_06/deficient/06_deficient_312.pdf,Tripura,North Tripura
+DOC0313,6,deficient,missing_university,Type_06/deficient/06_deficient_313.pdf,Jharkhand,Garhwa
+DOC0314,6,deficient,missing_university,Type_06/deficient/06_deficient_314.pdf,Odisha,Jharsuguda
+DOC0315,6,deficient,missing_university,Type_06/deficient/06_deficient_315.pdf,Chhattisgarh,Jashpur
+DOC0316,6,noisy,noisy,Type_06/noisy/06_noisy_316.pdf,Madhya Pradesh,Gwalior
+DOC0317,6,noisy,noisy,Type_06/noisy/06_noisy_317.pdf,Maharashtra,Akola
+DOC0318,6,noisy,noisy,Type_06/noisy/06_noisy_318.pdf,Rajasthan,Alwar
+DOC0319,6,noisy,noisy,Type_06/noisy/06_noisy_319.pdf,Gujarat,Kachchh
+DOC0320,6,noisy,noisy,Type_06/noisy/06_noisy_320.pdf,West Bengal,Jalpaiguri
+DOC0321,7,clean,clean,Type_07/clean/07_clean_321.pdf,Assam,Goalpara
+DOC0322,7,clean,clean,Type_07/clean/07_clean_322.pdf,Arunachal Pradesh,Papum Pare
+DOC0323,7,clean,clean,Type_07/clean/07_clean_323.pdf,Manipur,Thoubal
+DOC0324,7,clean,clean,Type_07/clean/07_clean_324.pdf,Tripura,North Tripura
+DOC0325,7,clean,clean,Type_07/clean/07_clean_325.pdf,Jharkhand,Garhwa
+DOC0326,7,clean,clean,Type_07/clean/07_clean_326.pdf,Odisha,Jharsuguda
+DOC0327,7,clean,clean,Type_07/clean/07_clean_327.pdf,Chhattisgarh,Jashpur
+DOC0328,7,clean,clean,Type_07/clean/07_clean_328.pdf,Madhya Pradesh,Gwalior
+DOC0329,7,clean,clean,Type_07/clean/07_clean_329.pdf,Maharashtra,Akola
+DOC0330,7,clean,clean,Type_07/clean/07_clean_330.pdf,Rajasthan,Alwar
+DOC0331,7,clean,clean,Type_07/clean/07_clean_331.pdf,Gujarat,Kachchh
+DOC0332,7,clean,clean,Type_07/clean/07_clean_332.pdf,West Bengal,Jalpaiguri
+DOC0333,7,clean,clean,Type_07/clean/07_clean_333.pdf,Assam,Goalpara
+DOC0334,7,clean,clean,Type_07/clean/07_clean_334.pdf,Arunachal Pradesh,Papum Pare
+DOC0335,7,clean,clean,Type_07/clean/07_clean_335.pdf,Manipur,Thoubal
+DOC0336,7,deficient,awaited,Type_07/deficient/07_deficient_336.pdf,Tripura,North Tripura
+DOC0337,7,deficient,awaited,Type_07/deficient/07_deficient_337.pdf,Jharkhand,Garhwa
+DOC0338,7,deficient,awaited,Type_07/deficient/07_deficient_338.pdf,Odisha,Jharsuguda
+DOC0339,7,deficient,awaited,Type_07/deficient/07_deficient_339.pdf,Chhattisgarh,Jashpur
+DOC0340,7,deficient,awaited,Type_07/deficient/07_deficient_340.pdf,Madhya Pradesh,Gwalior
+DOC0341,7,deficient,missing_university,Type_07/deficient/07_deficient_341.pdf,Maharashtra,Akola
+DOC0342,7,deficient,missing_university,Type_07/deficient/07_deficient_342.pdf,Rajasthan,Alwar
+DOC0343,7,deficient,missing_university,Type_07/deficient/07_deficient_343.pdf,Gujarat,Kachchh
+DOC0344,7,deficient,missing_university,Type_07/deficient/07_deficient_344.pdf,West Bengal,Jalpaiguri
+DOC0345,7,deficient,missing_university,Type_07/deficient/07_deficient_345.pdf,Assam,Goalpara
+DOC0346,7,noisy,noisy,Type_07/noisy/07_noisy_346.pdf,Arunachal Pradesh,Papum Pare
+DOC0347,7,noisy,noisy,Type_07/noisy/07_noisy_347.pdf,Manipur,Thoubal
+DOC0348,7,noisy,noisy,Type_07/noisy/07_noisy_348.pdf,Tripura,North Tripura
+DOC0349,7,noisy,noisy,Type_07/noisy/07_noisy_349.pdf,Jharkhand,Garhwa
+DOC0350,7,noisy,noisy,Type_07/noisy/07_noisy_350.pdf,Odisha,Jharsuguda
+DOC0351,8,clean,clean,Type_08/clean/08_clean_351.pdf,Chhattisgarh,Jashpur
+DOC0352,8,clean,clean,Type_08/clean/08_clean_352.pdf,Madhya Pradesh,Gwalior
+DOC0353,8,clean,clean,Type_08/clean/08_clean_353.pdf,Maharashtra,Akola
+DOC0354,8,clean,clean,Type_08/clean/08_clean_354.pdf,Rajasthan,Alwar
+DOC0355,8,clean,clean,Type_08/clean/08_clean_355.pdf,Gujarat,Kachchh
+DOC0356,8,clean,clean,Type_08/clean/08_clean_356.pdf,West Bengal,Jalpaiguri
+DOC0357,8,clean,clean,Type_08/clean/08_clean_357.pdf,Assam,Goalpara
+DOC0358,8,clean,clean,Type_08/clean/08_clean_358.pdf,Arunachal Pradesh,Papum Pare
+DOC0359,8,clean,clean,Type_08/clean/08_clean_359.pdf,Manipur,Thoubal
+DOC0360,8,clean,clean,Type_08/clean/08_clean_360.pdf,Tripura,North Tripura
+DOC0361,8,deficient,missing_overall,Type_08/deficient/08_deficient_361.pdf,Jharkhand,Garhwa
+DOC0362,8,deficient,missing_overall,Type_08/deficient/08_deficient_362.pdf,Odisha,Jharsuguda
+DOC0363,8,deficient,old_date,Type_08/deficient/08_deficient_363.pdf,Chhattisgarh,Jashpur
+DOC0364,8,deficient,old_date,Type_08/deficient/08_deficient_364.pdf,Madhya Pradesh,Gwalior
+DOC0365,8,deficient,old_date,Type_08/deficient/08_deficient_365.pdf,Maharashtra,Akola
+DOC0366,8,noisy,noisy,Type_08/noisy/08_noisy_366.pdf,Rajasthan,Alwar
+DOC0367,8,noisy,noisy,Type_08/noisy/08_noisy_367.pdf,Gujarat,Kachchh
+DOC0368,8,noisy,noisy,Type_08/noisy/08_noisy_368.pdf,West Bengal,Jalpaiguri
