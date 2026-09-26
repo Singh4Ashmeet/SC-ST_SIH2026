@@ -942,7 +942,7 @@ def seed_demo_data():
             conflicting_application_id=app_extra2.id,
             conflict_type=ConflictType.CONCURRENT_SCHOLARSHIP,
             status=ConflictStatus.PENDING_REVIEW,
-            confidence=94.0,
+            confidence=0.94,
             matching_signals={
                 "name_similarity": 0.98,
                 "dob_match": True,

@@ -139,13 +139,20 @@ export default function ConflictsPage() {
                       <span className="text-[10px] font-semibold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
                         {TYPE_LABELS[c.conflict_type] || c.conflict_type}
                       </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        c.confidence >= 0.9 ? "bg-rose-100 text-rose-700" :
-                        c.confidence >= 0.7 ? "bg-amber-100 text-amber-700" :
-                        "bg-blue-100 text-blue-700"
-                      }`}>
-                        {(c.confidence * 100).toFixed(0)}% match
-                      </span>
+                      {(() => {
+                        const pct = c.confidence > 1 ? c.confidence : c.confidence * 100;
+                        const isHigh = pct >= 90;
+                        const isMed = pct >= 70;
+                        return (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            isHigh ? "bg-rose-100 text-rose-700" :
+                            isMed ? "bg-amber-100 text-amber-700" :
+                            "bg-blue-100 text-blue-700"
+                          }`}>
+                            {pct.toFixed(0)}% match
+                          </span>
+                        );
+                      })()}
                     </div>
                     <p className="text-xs text-gray-700">{c.explanation}</p>
                     <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-400">

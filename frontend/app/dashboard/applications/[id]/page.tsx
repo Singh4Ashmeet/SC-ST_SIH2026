@@ -909,7 +909,7 @@ export default function ApplicationCaseFilePage() {
                 <span className="flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600" /> Potential Duplicate Beneficiary Flagged
                 </span>
-                <span>Match Score: {conflict.match_confidence}%</span>
+                <span>Match Score: {conflict.match_confidence > 1 ? Number(conflict.match_confidence).toFixed(0) : (Number(conflict.match_confidence) * 100).toFixed(0)}%</span>
               </div>
               <p className="text-amber-800">
                 System detected concurrent benefit application under multiple ST scholarship schemes.
