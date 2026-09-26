@@ -250,30 +250,30 @@ export function DecisionPassportView({ applicationId }: DecisionPassportViewProp
 
         <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           {document_evidence.map((doc: any) => (
-            <div key={doc.document_id} className="border border-stone-200 rounded-lg p-4 bg-stone-50/40 space-y-3">
+            <div key={doc.document_id || doc.id} className="border border-stone-200 rounded-lg p-4 bg-stone-50/40 space-y-3">
               <div className="flex items-center justify-between border-b border-stone-200 pb-2">
                 <div>
-                  <span className="text-xs font-bold text-stone-900 block">{doc.document_type.replace(/_/g, " ").toUpperCase()}</span>
-                  <span className="text-[10px] text-stone-500 font-mono">ID: {doc.document_id.slice(0, 8)}...</span>
+                  <span className="text-xs font-bold text-stone-900 block">{String(doc.document_type || doc.doc_type || "DOCUMENT").replace(/_/g, " ").toUpperCase()}</span>
+                  <span className="text-[10px] text-stone-500 font-mono">ID: {String(doc.document_id || doc.id || "").slice(0, 8)}...</span>
                 </div>
                 <div className="text-right">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${doc.status === "VERIFIED" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                    {doc.status}
+                    {doc.status || "PENDING"}
                   </span>
-                  <span className="block text-[10px] font-bold text-stone-600 mt-0.5">Trust: {Math.round(doc.document_confidence * 100)}%</span>
+                  <span className="block text-[10px] font-bold text-stone-600 mt-0.5">Trust: {Math.round((doc.document_confidence ?? 0.85) * 100)}%</span>
                 </div>
               </div>
 
               {/* Extracted Fields with Evidence */}
               <div className="space-y-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">Extracted Field Evidence</span>
-                {doc.extracted_fields.length === 0 ? (
+                {!doc.extracted_fields || !Array.isArray(doc.extracted_fields) || doc.extracted_fields.length === 0 ? (
                   <p className="text-xs text-stone-400 italic">No structured fields extracted.</p>
                 ) : (
                   doc.extracted_fields.map((f: any, fIdx: number) => (
                     <div key={fIdx} className="bg-white p-2.5 rounded border border-stone-200 text-xs space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-stone-700">{f.field_name.replace(/_/g, " ")}</span>
+                        <span className="font-semibold text-stone-700">{String(f.field_name || f.field || "").replace(/_/g, " ")}</span>
                         <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
                           {Math.round(f.confidence * 100)}% Conf
                         </span>
