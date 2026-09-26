@@ -22,7 +22,7 @@ def api(method, path, token=None, body=None):
 
 # 1. Login
 print("=== 1. Login as admin ===")
-login = api("POST", "/api/auth/login", body={"email": "admin@scst.gov.in", "password": "admin123"})
+login = api("POST", "/api/auth/login", body={"email": "admin@tribal.gov.in", "password": "admin123"})
 token = login["access_token"]
 print(f"  Token obtained for role: {login.get('user', {}).get('role', 'unknown')}")
 

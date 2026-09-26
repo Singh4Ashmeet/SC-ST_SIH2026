@@ -1,5 +1,5 @@
 """
-Comprehensive idempotent demo seed script for Scholarship Admin Platform.
+Comprehensive idempotent demo seed script for Yojana Setu (SIH26239).
 Matches the Section 8 Demo Checklist:
   - Scenario 1 (Golden path, NFST): submitted -> eligibility_check -> scrutiny -> selection -> approved -> disbursed -> renewal
   - Scenario 2 (Golden path, NOS): overseas scholarship end-to-end (same engine, different config)
@@ -90,28 +90,28 @@ def seed_demo_data():
 
         users_config = [
             {
-                "email": "admin@scst.gov.in",
+                "email": "admin@tribal.gov.in",
                 "password": "admin123",
                 "name": "Shri Rajeshwar Verma",
                 "role": UserRole.SUPER_ADMIN,
-                "title": "Super Administrator / MoSJE Oversight",
+                "title": "Super Administrator / MoTA Oversight",
             },
             {
-                "email": "scheme.admin@scst.gov.in",
+                "email": "scheme.admin@tribal.gov.in",
                 "password": "scheme123",
                 "name": "Smt. Sunita Sharma",
                 "role": UserRole.SCHEME_ADMIN,
                 "title": "Scheme Director & Policy Admin",
             },
             {
-                "email": "scrutiny@scst.gov.in",
+                "email": "scrutiny@tribal.gov.in",
                 "password": "scrutiny123",
                 "name": "Dr. Alok Nath",
                 "role": UserRole.SCRUTINY_OFFICER,
                 "title": "Senior Verification & Scrutiny Officer",
             },
             {
-                "email": "selection@scst.gov.in",
+                "email": "selection@tribal.gov.in",
                 "password": "selection123",
                 "name": "Prof. H. R. Soren",
                 "role": UserRole.SELECTION_COMMITTEE,
@@ -147,9 +147,9 @@ def seed_demo_data():
 
         db.commit()
 
-        # Also ensure legacy committee@scst.gov.in has working credentials if referenced
+        # Also ensure legacy committee@tribal.gov.in has working credentials if referenced
         legacy_committee = db.execute(
-            select(User).where(User.email == "committee@scst.gov.in")
+            select(User).where(User.email == "committee@tribal.gov.in")
         ).scalar_one_or_none()
         if legacy_committee:
             legacy_committee.hashed_password = hash_password("selection123")

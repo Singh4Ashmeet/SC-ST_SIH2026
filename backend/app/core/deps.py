@@ -114,8 +114,11 @@ require_super_admin = require_roles("SUPER_ADMIN")
 require_scheme_admin = require_roles("SUPER_ADMIN", "SCHEME_ADMIN")
 require_scrutiny_officer = require_roles("SUPER_ADMIN", "SCRUTINY_OFFICER")
 require_selection_committee = require_roles("SUPER_ADMIN", "SELECTION_COMMITTEE")
+require_institute_verifier = require_roles("SUPER_ADMIN", "INSTITUTE_VERIFIER", "NODAL_OFFICER")
+require_nodal_officer = require_roles("SUPER_ADMIN", "NODAL_OFFICER")
 require_any_role = require_roles(
-    "SUPER_ADMIN", "SCHEME_ADMIN", "SCRUTINY_OFFICER", "SELECTION_COMMITTEE"
+    "SUPER_ADMIN", "SCHEME_ADMIN", "SCRUTINY_OFFICER", "SELECTION_COMMITTEE",
+    "INSTITUTE_VERIFIER", "NODAL_OFFICER"
 )
 
 # Optional OAuth2 scheme for endpoints accessible to both authenticated users and public applicants

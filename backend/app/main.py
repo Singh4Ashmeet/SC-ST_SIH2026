@@ -1,5 +1,8 @@
 """
-Scholarship Admin Platform — FastAPI Application Entry Point
+Yojana Setu — FastAPI Application Entry Point
+
+AI-enabled Scholarship & Fellowship Management System for Scheduled Tribes.
+SIH Problem Statement: SIH26239 | Ministry of Tribal Affairs
 
 Provides:
   - CORS middleware (frontend origin from env)

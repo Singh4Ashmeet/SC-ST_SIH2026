@@ -1,5 +1,7 @@
 """
 API router configuration and endpoint aggregation.
+
+Yojana Setu (SIH26239) — Ministry of Tribal Affairs
 """
 
 from fastapi import APIRouter
@@ -16,6 +18,10 @@ from app.api.renewals import router as renewals_router
 from app.api.renewals_crud import router as renewals_crud_router
 from app.api.post_selection import router as post_selection_router
 from app.api.stats import router as stats_router
+from app.api.merit import router as merit_router
+from app.api.conflicts import router as conflicts_router
+from app.api.grievances import router as grievances_router
+from app.api.simulations import router as simulations_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -30,5 +36,9 @@ api_router.include_router(renewals_router)
 api_router.include_router(renewals_crud_router)
 api_router.include_router(post_selection_router)
 api_router.include_router(stats_router)
+api_router.include_router(merit_router)
+api_router.include_router(conflicts_router)
+api_router.include_router(grievances_router)
+api_router.include_router(simulations_router)
 
 __all__ = ["api_router"]

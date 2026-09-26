@@ -48,7 +48,6 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.database import Base, SessionLocal, engine
 from app.core.security import hash_password
 from app.models.application import Application
 from app.models.audit_log import AuditLog
@@ -314,28 +313,28 @@ def seed_database(db_url: Optional[str] = None, skip_minio: bool = False, minio_
         logger.info("[2/7] Provisioning Core Administrative Users...")
         users_config = [
             {
-                "email": "admin@scst.gov.in",
+                "email": "admin@tribal.gov.in",
                 "password": "admin123",
                 "name": "Shri Rajeshwar Verma",
                 "role": UserRole.SUPER_ADMIN,
-                "title": "Super Administrator / MoSJE Oversight",
+                "title": "Super Administrator / MoTA Oversight",
             },
             {
-                "email": "scheme.admin@scst.gov.in",
+                "email": "scheme.admin@tribal.gov.in",
                 "password": "scheme123",
                 "name": "Smt. Sunita Sharma",
                 "role": UserRole.SCHEME_ADMIN,
                 "title": "Scheme Director & Policy Admin",
             },
             {
-                "email": "scrutiny@scst.gov.in",
+                "email": "scrutiny@tribal.gov.in",
                 "password": "scrutiny123",
                 "name": "Dr. Alok Nath",
                 "role": UserRole.SCRUTINY_OFFICER,
                 "title": "Senior Verification & Scrutiny Officer",
             },
             {
-                "email": "selection@scst.gov.in",
+                "email": "selection@tribal.gov.in",
                 "password": "selection123",
                 "name": "Prof. H. R. Soren",
                 "role": UserRole.SELECTION_COMMITTEE,

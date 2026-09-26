@@ -55,7 +55,7 @@ def run_dry_run():
 
     # 1. AUTHENTICATION CHECK
     print("\n[ACT 1] Auth & Schemes Verification:")
-    status, res, t = api("POST", "/api/auth/login", body={"email": "admin@scst.gov.in", "password": "admin123"})
+    status, res, t = api("POST", "/api/auth/login", body={"email": "admin@tribal.gov.in", "password": "admin123"})
     assert status == 200, f"Login failed: {res}"
     admin_token = res["access_token"]
     print(f"  ✓ Admin login successful ({t:.1f}ms)")
@@ -135,7 +135,7 @@ def run_dry_run():
 
     # 6. ACT 6 (Live Selection Committee Approval)
     print("\n[ACT 6] Selection Committee Queue & Live Approval:")
-    status, committee_login, t = api("POST", "/api/auth/login", body={"email": "selection@scst.gov.in", "password": "selection123"})
+    status, committee_login, t = api("POST", "/api/auth/login", body={"email": "selection@tribal.gov.in", "password": "selection123"})
     assert status == 200
     committee_token = committee_login["access_token"]
     print(f"  ✓ Committee login successful ({t:.1f}ms)")

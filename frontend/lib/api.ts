@@ -1,5 +1,5 @@
 /**
- * API client for the Scholarship Admin Platform backend.
+ * API client for the Yojana Setu backend (SIH26239 — Ministry of Tribal Affairs).
  *
  * JWT stored in localStorage, sent as Authorization: Bearer header.
  */
@@ -520,4 +520,118 @@ export async function getStatsOverview(): Promise<StatsOverview> {
 
 export async function getSchemeStats(schemeId: string): Promise<StatsOverview> {
   return apiFetch<StatsOverview>(`/api/stats/schemes/${schemeId}`);
+}
+
+// ── Merit Engine API ─────────────────────────────────────────────────────────
+
+export async function runMeritEvaluation(schemeId: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/merit/schemes/${schemeId}/evaluate`, { method: "POST" });
+}
+
+export async function getMeritRankings(schemeId: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/merit/schemes/${schemeId}/rankings`);
+}
+
+export async function getApplicationMeritScore(applicationId: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/merit/applications/${applicationId}/score`);
+}
+
+export async function previewMeritScore(applicationId: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/merit/applications/${applicationId}/preview`, { method: "POST" });
+}
+
+// ── Conflict Detection API ───────────────────────────────────────────────────
+
+export async function runConflictDetection(
+  applicationId: string,
+  threshold?: number
+): Promise<Record<string, unknown>> {
+  const params = threshold !== undefined ? `?threshold=${threshold}` : "";
+  return apiFetch<Record<string, unknown>>(`/api/conflicts/applications/${applicationId}/detect${params}`, { method: "POST" });
+}
+
+export async function getConflicts(params?: {
+  application_id?: string;
+  status_filter?: string;
+}): Promise<Record<string, unknown>> {
+  const searchParams = new URLSearchParams();
+  if (params?.application_id) searchParams.set("application_id", params.application_id);
+  if (params?.status_filter) searchParams.set("status_filter", params.status_filter);
+  const qs = searchParams.toString();
+  return apiFetch<Record<string, unknown>>(`/api/conflicts${qs ? `?${qs}` : ""}`);
+}
+
+export async function resolveConflict(
+  conflictId: string,
+  data: { status: string; resolution_remarks?: string }
+): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/conflicts/${conflictId}/resolve`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// ── Grievance API ────────────────────────────────────────────────────────────
+
+export async function createGrievance(data: {
+  applicant_name: string;
+  applicant_email: string;
+  application_id?: string;
+  category?: string;
+  description: string;
+  priority?: string;
+}): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>("/api/grievances", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getGrievances(params?: {
+  status_filter?: string;
+  priority_filter?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<Record<string, unknown>> {
+  const searchParams = new URLSearchParams();
+  if (params?.status_filter) searchParams.set("status_filter", params.status_filter);
+  if (params?.priority_filter) searchParams.set("priority_filter", params.priority_filter);
+  if (params?.page) searchParams.set("page", params.page.toString());
+  if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
+  const qs = searchParams.toString();
+  return apiFetch<Record<string, unknown>>(`/api/grievances${qs ? `?${qs}` : ""}`);
+}
+
+export async function updateGrievance(
+  grievanceId: string,
+  data: { status?: string; resolution?: string; assigned_role?: string }
+): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/grievances/${grievanceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getGrievanceStats(): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>("/api/grievances/stats/overview");
+}
+
+// ── Policy Simulation API ────────────────────────────────────────────────────
+
+export async function runPolicySimulation(
+  schemeId: string,
+  data: { proposed_config: Record<string, unknown>; simulation_name?: string }
+): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/simulations/schemes/${schemeId}/simulate`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getSimulationHistory(schemeId: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/simulations/schemes/${schemeId}/history`);
+}
+
+export async function getSimulationDetail(simulationId: string): Promise<Record<string, unknown>> {
+  return apiFetch<Record<string, unknown>>(`/api/simulations/${simulationId}`);
 }

@@ -38,25 +38,78 @@
       "doc_type": "caste_certificate",
       "label": "Caste / Tribe Certificate",
       "required": true,
-      "accepted_formats": ["pdf", "jpg", "png"]
+      "accepted_formats": ["pdf", "jpg", "png"],
+      "issuing_authority": "District Magistrate / SDM",
+      "ocr_fields": ["name", "father_name", "category", "certificate_number"]
     },
     {
       "doc_type": "income_certificate",
       "label": "Family Income Certificate",
       "required": true,
-      "accepted_formats": ["pdf", "jpg"]
+      "accepted_formats": ["pdf", "jpg"],
+      "validity_days": 365,
+      "issuing_authority": "Tehsildar / Revenue Officer",
+      "ocr_fields": ["name", "annual_income", "issuing_date"]
     },
     {
       "doc_type": "marksheet",
       "label": "Post-Graduate Qualifying Marksheet",
       "required": true,
-      "accepted_formats": ["pdf"]
+      "accepted_formats": ["pdf"],
+      "ocr_fields": ["name", "percentage", "university", "year_of_passing"]
     },
     {
       "doc_type": "bonafide_certificate",
       "label": "University Bonafide Research Certificate",
       "required": true,
-      "accepted_formats": ["pdf"]
+      "accepted_formats": ["pdf"],
+      "ocr_fields": ["name", "enrollment_number", "institution"]
+    }
+  ],
+  "merit_criteria": [
+    {
+      "name": "Academic Performance",
+      "field": "percentage",
+      "weight": 40,
+      "max_score": 100,
+      "description": "Post-graduate qualifying examination percentage"
+    },
+    {
+      "name": "Research Proposal Quality",
+      "field": "research_score",
+      "weight": 30,
+      "max_score": 100,
+      "description": "Expert panel evaluation of research proposal"
+    },
+    {
+      "name": "Interview Score",
+      "field": "interview_score",
+      "weight": 20,
+      "max_score": 100,
+      "description": "Selection committee interview rating"
+    },
+    {
+      "name": "Publication Record",
+      "field": "publication_score",
+      "weight": 10,
+      "max_score": 100,
+      "description": "Prior publications and conference presentations"
+    }
+  ],
+  "preference_rules": [
+    {
+      "name": "PVTG Community",
+      "field": "is_pvtg",
+      "condition": { "==": [{ "var": "is_pvtg" }, true] },
+      "bonus_points": 5,
+      "description": "Particularly Vulnerable Tribal Group (PVTG) preference"
+    },
+    {
+      "name": "First-generation Scholar",
+      "field": "first_generation",
+      "condition": { "==": [{ "var": "first_generation" }, true] },
+      "bonus_points": 3,
+      "description": "First member of family to pursue higher education"
     }
   ],
   "workflow_states": [
@@ -125,5 +178,58 @@
       "allowed_roles": ["SCHEME_ADMIN", "SUPER_ADMIN"]
     }
   ],
-  "initial_state": "submitted"
+  "initial_state": "submitted",
+  "sla_rules": [
+    {
+      "stage": "eligibility_check",
+      "duration_hours": 4,
+      "warning_hours": 2,
+      "escalation_role": "SCHEME_ADMIN"
+    },
+    {
+      "stage": "document_scrutiny",
+      "duration_hours": 48,
+      "warning_hours": 12,
+      "escalation_role": "SUPER_ADMIN"
+    },
+    {
+      "stage": "selection",
+      "duration_hours": 72,
+      "warning_hours": 24,
+      "escalation_role": "SUPER_ADMIN"
+    }
+  ],
+  "notification_rules": [
+    {
+      "event": "application_submitted",
+      "channels": ["portal", "email"],
+      "template": "Dear {applicant_name}, your application for NFST (ID: {application_id}) has been submitted successfully.",
+      "recipient": "applicant"
+    },
+    {
+      "event": "eligibility_passed",
+      "channels": ["portal"],
+      "template": "Your application has passed eligibility verification and is now under document scrutiny.",
+      "recipient": "applicant"
+    },
+    {
+      "event": "documents_flagged_deficient",
+      "channels": ["portal", "email"],
+      "template": "Action required: Your application has document deficiencies. Please resubmit the flagged documents.",
+      "recipient": "applicant"
+    },
+    {
+      "event": "committee_approved",
+      "channels": ["portal", "email"],
+      "template": "Congratulations! Your NFST fellowship application has been approved by the selection committee.",
+      "recipient": "applicant"
+    }
+  ],
+  "conflict_rules": [
+    {
+      "incompatible_schemes": ["NOS", "NFST"],
+      "policy": "concurrent_prohibited",
+      "matching_fields": ["applicant_name", "date_of_birth", "mobile", "applicant_email"]
+    }
+  ]
 }

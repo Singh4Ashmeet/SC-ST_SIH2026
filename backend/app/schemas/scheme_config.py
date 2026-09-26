@@ -1,11 +1,19 @@
 """
 Scheme Configuration Schema & Validator.
 
+Yojana Setu (SIH26239) — Ministry of Tribal Affairs
+AI-enabled Scholarship & Fellowship Management System for Scheduled Tribes.
+
 Defines the structure of Scheme.config JSONB field:
   - WorkflowState
   - WorkflowTransition
   - RequiredDocument
   - EligibilityRule
+  - MeritCriterion
+  - SLARule
+  - NotificationRule
+  - ConflictRule
+  - PreferenceRule
   - SchemeConfig
 """
 
@@ -46,6 +54,8 @@ class RequiredDocument(BaseModel):
     required: bool = True
     accepted_formats: List[str] = Field(default_factory=lambda: ["pdf", "jpg", "png"])
     validity_days: Optional[int] = Field(default=None, description="Validity window in days for expiry check. If not set, default (365 days) applies for applicable doc_types.")
+    issuing_authority: Optional[str] = Field(default=None, description="Expected issuing authority for validation")
+    ocr_fields: List[str] = Field(default_factory=list, description="Fields expected from OCR extraction")
 
     model_config = ConfigDict(extra="ignore")
 
@@ -59,21 +69,77 @@ class EligibilityRule(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class MeritCriterion(BaseModel):
+    """A weighted criterion for merit-based scoring and ranking."""
+    name: str = Field(description="Display name of the criterion")
+    field: str = Field(description="Field key in applicant_data to read score from")
+    weight: float = Field(ge=0, le=100, description="Weight as percentage (0-100)")
+    max_score: float = Field(default=100, ge=0, description="Maximum possible score for this criterion")
+    description: Optional[str] = Field(default=None)
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class SLARule(BaseModel):
+    """SLA rule for a workflow stage with escalation timing."""
+    stage: str = Field(description="Workflow state name this SLA applies to")
+    duration_hours: int = Field(ge=1, description="SLA duration in hours")
+    warning_hours: Optional[int] = Field(default=None, description="Hours before breach to show warning")
+    escalation_role: Optional[str] = Field(default=None, description="Role to escalate to on breach")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class NotificationRule(BaseModel):
+    """Notification trigger configuration."""
+    event: str = Field(description="Event triggering the notification (e.g. application_submitted, eligibility_passed)")
+    channels: List[str] = Field(default_factory=lambda: ["portal"], description="Channels: portal, email, sms")
+    template: Optional[str] = Field(default=None, description="Message template with {placeholders}")
+    recipient: str = Field(default="applicant", description="Target: applicant, officer, institute")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class ConflictRule(BaseModel):
+    """Cross-scheme conflict detection rule."""
+    incompatible_schemes: List[str] = Field(default_factory=list, description="Scheme codes that cannot be held concurrently")
+    policy: str = Field(default="concurrent_prohibited", description="Policy type: concurrent_prohibited, requires_review")
+    matching_fields: List[str] = Field(default_factory=lambda: ["applicant_name", "date_of_birth", "mobile"], description="Fields used for beneficiary matching")
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class PreferenceRule(BaseModel):
+    """Preference factor for merit scoring tiebreaking."""
+    name: str = Field(description="Preference factor name")
+    field: str = Field(description="Field key in applicant_data")
+    condition: Dict[str, Any] = Field(description="JSON-logic condition that grants preference")
+    bonus_points: float = Field(default=0, ge=0, description="Additional points added to merit score")
+    description: Optional[str] = Field(default=None)
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class SchemeConfig(BaseModel):
     """Top-level scheme configuration document stored in Scheme.config."""
     scheme_code: str
     version: int = 1
     eligibility_rules: List[EligibilityRule] = Field(default_factory=list)
     required_documents: List[RequiredDocument] = Field(default_factory=list)
+    merit_criteria: List[MeritCriterion] = Field(default_factory=list)
+    preference_rules: List[PreferenceRule] = Field(default_factory=list)
     workflow_states: List[WorkflowState]
     workflow_transitions: List[WorkflowTransition]
     initial_state: str
+    sla_rules: List[SLARule] = Field(default_factory=list)
+    notification_rules: List[NotificationRule] = Field(default_factory=list)
+    conflict_rules: List[ConflictRule] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="ignore")
 
     @model_validator(mode="after")
     def validate_workflow_integrity(self) -> "SchemeConfig":
-        """Validate workflow consistency, state transitions, reachability, and document uniqueness."""
+        """Validate workflow consistency, state transitions, reachability, document uniqueness, and merit weights."""
         errors: List[str] = []
 
         state_names: Set[str] = {s.name for s in self.workflow_states}
@@ -147,7 +213,23 @@ class SchemeConfig(BaseModel):
                 f"Duplicate doc_type in required_documents: {', '.join(sorted(duplicate_docs))}"
             )
 
+        # 5. merit_criteria weights must total 100% if any are defined
+        if self.merit_criteria:
+            total_weight = sum(c.weight for c in self.merit_criteria)
+            if abs(total_weight - 100.0) > 0.01:
+                errors.append(
+                    f"Merit criteria weights must total 100%, got {total_weight:.2f}%"
+                )
+
+        # 6. SLA rules reference valid workflow states
+        for sla in self.sla_rules:
+            if sla.stage not in state_names:
+                errors.append(
+                    f"SLA rule references unknown workflow state '{sla.stage}'"
+                )
+
         if errors:
             raise SchemeConfigValidationError(errors)
 
         return self
+

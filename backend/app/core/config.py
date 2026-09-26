@@ -1,5 +1,8 @@
 """
-Scholarship Admin Platform - Configuration & Settings
+Yojana Setu — Configuration & Settings
+
+AI-enabled Scholarship & Fellowship Management System for Scheduled Tribes.
+SIH Problem Statement: SIH26239 | Ministry of Tribal Affairs
 
 Uses pydantic-settings to load configuration from environment variables / .env file.
 """
@@ -12,7 +15,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Application
-    APP_NAME: str = "Scholarship Admin Platform"
+    APP_NAME: str = "Yojana Setu"
     DEBUG: bool = False
 
     # Database

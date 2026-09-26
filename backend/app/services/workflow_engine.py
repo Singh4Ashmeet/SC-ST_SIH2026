@@ -20,6 +20,7 @@ from app.services.eligibility_engine import EligibilityResult, evaluate_eligibil
 from app.services.deficiency_service import check_application_documents, DeficiencyCheck
 from app.models.document import Document
 from app.services.notification_service import notification_service, NotificationEvent
+from app.services.conflict_engine import detect_conflicts_for_application
 
 
 class InvalidTransitionError(ValueError):
@@ -316,6 +317,27 @@ class WorkflowEngine:
             actor_user_id=None,
             details=details
         )
+
+        # Auto-run cross-scheme conflict detection after eligibility passes
+        # Conflicts are flagged for human review — never auto-rejected
+        if result.passed:
+            try:
+                conflicts = detect_conflicts_for_application(
+                    db=self.db,
+                    application_id=application.id,
+                    threshold=0.6,
+                )
+                if conflicts:
+                    import logging
+                    logging.getLogger(__name__).info(
+                        f"Auto-detected {len(conflicts)} conflict(s) for "
+                        f"application {application.id} — flagged for review"
+                    )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Conflict detection failed for {application.id}: {e}"
+                )
 
         return updated_application, result
 

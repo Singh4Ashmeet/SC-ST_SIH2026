@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   LayoutGrid,
   FileCheck2,
-  Sliders,
+  Sparkles,
   Cpu,
   FileText,
   Search,
@@ -17,6 +17,10 @@ import {
   X,
   LogOut,
   ChevronDown,
+  Award,
+  Shield,
+  MessageSquareWarning,
+  Sliders,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -33,9 +37,9 @@ const NAV_ITEMS = [
     exact: false,
   },
   {
-    label: "Scheme Configurator",
+    label: "Scheme Rule Studio",
     href: "/dashboard/schemes",
-    icon: Sliders,
+    icon: Sparkles,
     exact: false,
   },
   {
@@ -45,11 +49,31 @@ const NAV_ITEMS = [
     exact: false,
   },
   {
-    label: "Selection Committee",
+    label: "Merit & Selection",
     href: "/dashboard/selection",
-    icon: UserCheck,
+    icon: Award,
     exact: false,
     roles: ["SUPER_ADMIN", "SELECTION_COMMITTEE"],
+  },
+  {
+    label: "Conflict Detection",
+    href: "/dashboard/conflicts",
+    icon: Shield,
+    exact: false,
+    roles: ["SUPER_ADMIN", "SCHEME_ADMIN"],
+  },
+  {
+    label: "Grievances",
+    href: "/dashboard/grievances",
+    icon: MessageSquareWarning,
+    exact: false,
+  },
+  {
+    label: "Policy Simulator",
+    href: "/dashboard/simulation",
+    icon: Sliders,
+    exact: false,
+    roles: ["SUPER_ADMIN", "SCHEME_ADMIN"],
   },
   {
     label: "Audit Trail",

@@ -1,7 +1,7 @@
-# Scholarship Admin Platform — Live Demo Run-of-Show Script
+# Yojana Setu — Live Demo Run-of-Show Script
 
 > **Demonstration Run-Time**: 6 – 8 minutes  
-> **Target Audience**: SIH / Ministry of Social Justice & Empowerment (MoSJE) Evaluation Committee  
+> **Target Audience**: SIH / Ministry of Tribal Affairs (MoTA) Evaluation Committee  
 > **Core Theme**: A unified, config-driven lifecycle engine handling distinct scholarship schemes end-to-end with real AI/OCR document verification, transparent eligibility rules, resilient unhappy path handling, immutable audit trails, and post-selection tracking.
 
 ---
@@ -16,10 +16,10 @@ python scripts/seed_demo.py
 
 | Role | Email | Password | Persona / Purpose |
 | :--- | :--- | :--- | :--- |
-| **Super Admin** | `admin@scst.gov.in` | `admin123` | Shri Rajeshwar Verma (System oversight, audit review) |
-| **Scheme Admin** | `scheme.admin@scst.gov.in` | `scheme123` | Smt. Sunita Sharma (Config designer, rules management) |
-| **Scrutiny Officer** | `scrutiny@scst.gov.in` | `scrutiny123` | Dr. Alok Nath (Document verification & deficiency detection) |
-| **Selection Committee** | `selection@scst.gov.in` | `selection123` | Prof. H. R. Soren (Final committee scoring & grant awards) |
+| **Super Admin** | `admin@tribal.gov.in` | `admin123` | Shri Rajeshwar Verma (System oversight, audit review) |
+| **Scheme Admin** | `scheme.admin@tribal.gov.in` | `scheme123` | Smt. Sunita Sharma (Config designer, rules management) |
+| **Scrutiny Officer** | `scrutiny@tribal.gov.in` | `scrutiny123` | Dr. Alok Nath (Document verification & deficiency detection) |
+| **Selection Committee** | `selection@tribal.gov.in` | `selection123` | Prof. H. R. Soren (Final committee scoring & grant awards) |
 
 > [!TIP]
 > The seeded demo uses dynamic UUIDs stored in `demo_context.json`. You can also find all applications directly on the dashboard pages (`/dashboard/applications`, `/dashboard/scrutiny`, `/dashboard/selection`).
@@ -33,7 +33,7 @@ Prove that the platform is **zero-hardcoded**: two structurally different centra
 
 ### Steps
 1. **Navigate to**: `http://localhost:3000/login`
-2. **Login as**: `admin@scst.gov.in` / `admin123`
+2. **Login as**: `admin@tribal.gov.in` / `admin123`
 3. **Navigate to**: `http://localhost:3000/dashboard/schemes`
 4. **Click on**: **NFST** scheme card (`/dashboard/schemes/...`)
    - Scroll through **Eligibility Rules**: Notice JSONLogic rules (`age <= 36`, `annual_income <= 600000`, `category == 'ST'`).
@@ -184,8 +184,8 @@ End on the high-level executive dashboard showing total volume, scheme distribut
    - **Breakdowns**: Visual bars showing workflow state distribution and scheme distribution.
    - **Live Audit Activity Feed**: Recent operations streaming into the overview.
 
-> 🗣️ **Closing Summary (SIH26238 Connection)**:  
-> *"To summarize: this platform solves the core mandate of SIH26238. From config-driven intake across diverse schemes, through automated AI scrutiny and committee workflows, to financial disbursement and renewal tracking — everything is backed by an immutable audit trail and a responsive citizen portal."*
+> 🗣️ **Closing Summary (SIH26239 Connection)**:  
+> *"To summarize: Yojana Setu solves the core mandate of SIH26239 for the Ministry of Tribal Affairs. From config-driven intake across diverse ST scholarship schemes, through automated AI scrutiny, cross-scheme conflict detection, merit-based ranking, and committee workflows, to financial disbursement, grievance management, and renewal tracking — everything is backed by an immutable audit trail and a responsive citizen portal."*
 
 ---
 

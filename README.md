@@ -1,8 +1,8 @@
-# 🎓 Scholarship Admin Platform
+# 🎓 Yojana Setu
 
-> **SIH Problem Statement SIH26239**: Modernizing scholarship and fellowship administration for the Ministry of Social Justice & Empowerment (MoSJE) through a unified, config-driven lifecycle management platform.
+> **SIH Problem Statement SIH26239**: AI-enabled Scholarship & Fellowship Management System for Scheduled Tribe students, managing the complete lifecycle from intake to disbursement — for the Ministry of Tribal Affairs (MoTA).
 
-A full-stack, enterprise-grade admin platform and citizen portal designed to administer central scholarship and fellowship schemes — from dynamic intake and automated eligibility evaluation, through OCR-assisted document scrutiny and selection committee workflows, to post-selection disbursement tracking and annual renewal review cycles.
+A full-stack, enterprise-grade admin platform and citizen portal designed to administer central scholarship and fellowship schemes for Scheduled Tribes — from dynamic no-code scheme configuration and automated eligibility evaluation, through OCR-assisted document scrutiny, AI-powered cross-scheme conflict detection, merit-based ranking, and selection committee workflows, to post-selection disbursement tracking, grievance management with SLA, and annual renewal review cycles.
 
 ---
 
@@ -115,10 +115,10 @@ The seed script (`backend/scripts/seed_demo.py`) initializes standard personas f
 
 | Persona | Email | Password | Role & Purpose |
 | :--- | :--- | :--- | :--- |
-| **Super Admin** | `admin@scst.gov.in` | `admin123` | Shri Rajeshwar Verma — Executive oversight & full system control |
-| **Scheme Admin** | `scheme.admin@scst.gov.in` | `scheme123` | Smt. Sunita Sharma — Policy director & scheme schema manager |
-| **Scrutiny Officer** | `scrutiny@scst.gov.in` | `scrutiny123` | Dr. Alok Nath — Document scrutiny & deficiency flagging |
-| **Selection Committee** | `selection@scst.gov.in` | `selection123` | Prof. H. R. Soren — Committee Chair (Scoring & Award approval) |
+| **Super Admin** | `admin@tribal.gov.in` | `admin123` | Shri Rajeshwar Verma — Executive oversight & full system control |
+| **Scheme Admin** | `scheme.admin@tribal.gov.in` | `scheme123` | Smt. Sunita Sharma — Policy director & scheme configuration |
+| **Scrutiny Officer** | `scrutiny@tribal.gov.in` | `scrutiny123` | Dr. Alok Nath — Document scrutiny & deficiency flagging |
+| **Selection Committee** | `selection@tribal.gov.in` | `selection123` | Prof. H. R. Soren — Committee Chair (Scoring & Award approval) |
 
 ---
 
@@ -180,4 +180,4 @@ scholarship-admin-platform/
 
 ## ⚖️ License & Ethical Declaration
 
-This project was built for the **Smart India Hackathon (SIH26238)**. All personal names, registration numbers, income certificates, and applicant details used in fixtures, seed scripts, and sample documents are 100% synthetic and generated exclusively for testing and demonstration purposes.
+This project was built for the **Smart India Hackathon (SIH26239)** — Ministry of Tribal Affairs. All personal names, registration numbers, income certificates, and applicant details used in fixtures, seed scripts, and sample documents are 100% synthetic and generated exclusively for testing and demonstration purposes.
