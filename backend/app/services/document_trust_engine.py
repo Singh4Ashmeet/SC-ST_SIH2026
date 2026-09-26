@@ -64,20 +64,22 @@ def evaluate_document_trust(
 
     # 1. OCR Quality
     text_len = len(raw_text.strip())
-    if text_len > 150:
+    extracted_keys = [k for k in extracted.keys() if not k.startswith("_")]
+    if text_len > 150 or (not raw_text and len(extracted_keys) >= 3):
         ocr_quality = "GOOD"
-    elif text_len > 40:
+    elif text_len > 40 or (not raw_text and len(extracted_keys) >= 1):
         ocr_quality = "MODERATE"
     else:
         ocr_quality = "LOW"
+
+    display_len = text_len if text_len > 0 else (len(extracted_keys) * 35)
     signals["ocr_quality"] = {
         "status": ocr_quality,
-        "label": f"{ocr_quality} ({text_len} characters extracted)",
+        "label": f"{ocr_quality} ({display_len} characters equivalent)",
         "pass": ocr_quality in ["GOOD", "MODERATE"],
     }
 
     # 2. Document Type Match
-    extracted_keys = [k for k in extracted.keys() if not k.startswith("_")]
     if text_len > 100 and len(extracted_keys) < 2:
         doc_type_match = "MISMATCH"
         reasons.append("Document text does not match expected structure for this certificate type.")
@@ -232,7 +234,55 @@ def evaluate_document_trust(
     else:
         decision = "VERIFIED"
 
-    trust_score = 95 if decision == "VERIFIED" else (65 if decision == "NEEDS_SCRUTINY" else 35)
+    # Field confidence extraction & continuous document-level confidence calculation
+    field_confidences: Dict[str, float] = {}
+    for k, v in extracted.items():
+        if not k.startswith("_"):
+            if isinstance(v, dict) and "confidence" in v:
+                conf_val = v["confidence"]
+                if isinstance(conf_val, (int, float)):
+                    field_confidences[k] = float(conf_val)
+                elif conf_val == "high":
+                    field_confidences[k] = 0.95
+                elif conf_val == "medium":
+                    field_confidences[k] = 0.80
+                else:
+                    field_confidences[k] = 0.60
+            elif v is not None and str(v).strip():
+                field_confidences[k] = 0.85
+
+    field_conf_avg = (sum(field_confidences.values()) / len(field_confidences)) if field_confidences else 0.80
+    signal_pass_count = sum(1 for s in signals.values() if s.get("pass", False))
+    signal_ratio = signal_pass_count / max(len(signals), 1)
+    ocr_quality_conf = 0.95 if ocr_quality == "GOOD" else (0.75 if ocr_quality == "MODERATE" else 0.40)
+
+    # Calculate real continuous document confidence (0.0 to 1.0)
+    calculated_doc_confidence = round(0.40 * signal_ratio + 0.40 * field_conf_avg + 0.20 * ocr_quality_conf, 2)
+    if has_critical_failure:
+        calculated_doc_confidence = min(calculated_doc_confidence, 0.45)
+
+    # Uncertainty-Aware Routing Thresholds (configurable via scheme_config if provided)
+    auto_verify_thresh = 0.90
+    human_review_thresh = 0.70
+    if scheme_config and hasattr(scheme_config, "trust_thresholds"):
+        auto_verify_thresh = getattr(scheme_config.trust_thresholds, "auto_verify", 0.90)
+        human_review_thresh = getattr(scheme_config.trust_thresholds, "human_review", 0.70)
+    elif scheme_config and isinstance(scheme_config, dict) and "trust_thresholds" in scheme_config:
+        auto_verify_thresh = scheme_config["trust_thresholds"].get("auto_verify", 0.90)
+        human_review_thresh = scheme_config["trust_thresholds"].get("human_review", 0.70)
+
+    if calculated_doc_confidence >= auto_verify_thresh and not has_critical_failure and not reasons:
+        review_routing = "AUTO_VERIFY"
+        routing_explanation = f"Confidence {calculated_doc_confidence * 100:.0f}% meets/exceeds {auto_verify_thresh * 100:.0f}% policy threshold with all trust signals verified."
+    elif calculated_doc_confidence >= human_review_thresh and not has_critical_failure:
+        review_routing = "HUMAN_REVIEW_RECOMMENDED"
+        routing_explanation = f"Confidence {calculated_doc_confidence * 100:.0f}% is within advisory review window ({human_review_thresh * 100:.0f}% - {auto_verify_thresh * 100:.0f}%). Human verification suggested."
+    else:
+        review_routing = "MANDATORY_HUMAN_REVIEW"
+        reasons_summary = "; ".join(reasons) if reasons else "Confidence below required policy threshold."
+        routing_explanation = f"Confidence {calculated_doc_confidence * 100:.0f}% is below {human_review_thresh * 100:.0f}% policy threshold or critical trust failure detected: {reasons_summary}"
+
+    trust_score = int(calculated_doc_confidence * 100)
     signals_list = [
         {"name": "Document Type Confidence", "status": "PASS" if doc_type_match == "MATCH" else "WARN", "message": doc_type_match},
         {"name": "Applicant Name Consistency", "status": "PASS" if name_status == "MATCH" else "WARN", "message": name_status},
@@ -248,6 +298,14 @@ def evaluate_document_trust(
         "decision": decision,
         "overall_trust_status": decision,
         "trust_score": trust_score,
+        "document_confidence": calculated_doc_confidence,
+        "field_confidence": field_confidences,
+        "review_routing": review_routing,
+        "routing_explanation": routing_explanation,
+        "thresholds_applied": {
+            "auto_verify": auto_verify_thresh,
+            "human_review": human_review_thresh,
+        },
         "signals": signals_list,
         "raw_signals": signals,
         "reasons": reasons,
@@ -330,6 +388,9 @@ def build_evidence_graph(application: Any, documents: List[Any]) -> Dict[str, An
             })
 
     discrepancy_count = sum(1 for c in cross_comparisons if c["status"] == "DISCREPANCY")
+    total_comparisons = len(cross_comparisons)
+    passed_comparisons = sum(1 for c in cross_comparisons if c["status"] == "PASS")
+    cross_doc_confidence = round(passed_comparisons / max(total_comparisons, 1), 2) if total_comparisons > 0 else 1.0
 
     return {
         "application_id": str(application.id),
@@ -337,6 +398,7 @@ def build_evidence_graph(application: Any, documents: List[Any]) -> Dict[str, An
         "evidence_nodes": evidence_nodes,
         "cross_comparisons": cross_comparisons,
         "total_anomalies": discrepancy_count,
+        "cross_document_confidence": cross_doc_confidence,
         "overall_evidence_integrity": "PASS" if discrepancy_count == 0 else "REVIEW_REQUIRED",
         "consistency_verdict": "PASS" if discrepancy_count == 0 else "WARNING",
         "anomalies": [c["message"] for c in cross_comparisons if c["status"] == "DISCREPANCY"],

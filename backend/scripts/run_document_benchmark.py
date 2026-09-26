@@ -113,8 +113,8 @@ def run_benchmark(corpus_dir: Path, max_samples: int = None) -> Dict[str, Any]:
 
                 matched_here = 0
                 alias_map = {
-                    "name": ["applicant_name", "name", "student_name", "candidate_name"],
-                    "fathername": ["father_name", "fathers_name"],
+                    "name": ["applicant_name", "name", "student_name", "candidate_name", "full_name"],
+                    "fathername": ["father_name", "fathers_name", "father"],
                     "certificatenumber": ["certificate_number", "cert_no", "certificate_no"],
                     "issuedate": ["issue_date", "date"],
                     "tribe": ["tribe", "category"],
@@ -122,10 +122,26 @@ def run_benchmark(corpus_dir: Path, max_samples: int = None) -> Dict[str, Any]:
                     "annualincome": ["annual_income", "family_income", "income"],
                     "state": ["state"],
                     "district": ["district"],
-                    "institution": ["institution", "university", "college"],
-                    "course": ["course", "degree", "program"],
-                    "passportnumber": ["passport_number"],
+                    "institution": ["institution", "university", "college", "institution_name", "board_or_university"],
+                    "university": ["university", "board_or_university", "institution_name", "institution"],
+                    "course": ["course", "degree", "program", "programme"],
+                    "programme": ["course", "degree", "program", "programme"],
+                    "passportnumber": ["passport_number", "passportno"],
+                    "passportno": ["passport_number", "passportno"],
                     "percentage": ["percentage", "marks", "cgpa"],
+                    "aggregatepercentage": ["percentage", "marks", "cgpa"],
+                    "fy": ["financial_year", "fy"],
+                    "authority": ["issuing_authority", "authority"],
+                    "enrollmentno": ["enrollment_no", "enrol_no", "enrollmentno"],
+                    "academicyear": ["academic_year"],
+                    "surname": ["full_name"],
+                    "givenname": ["full_name"],
+                    "dob": ["date_of_birth", "dob"],
+                    "overallband": ["overall_score", "overall_band", "overallband"],
+                    "candidatename": ["candidate_name", "student_name", "applicant_name", "full_name"],
+                    "testdate": ["test_date", "issue_date"],
+                    "admissionstatus": ["admission_status", "result"],
+                    "result": ["result", "admission_status"],
                 }
                 for exp_k, exp_v in expected_ocr.items():
                     norm_exp = exp_k.lower().replace("_", "")

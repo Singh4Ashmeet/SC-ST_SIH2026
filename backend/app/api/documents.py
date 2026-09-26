@@ -67,19 +67,12 @@ async def upload_document(
     application_id: uuid.UUID,
     doc_type: Annotated[str, Form(...)],
     file: Annotated[UploadFile, File(...)],
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> DocumentRead:
     """
     Upload a document for an application.
-
-    Validates that:
-    - Application exists
-    - doc_type is in the scheme's required_documents
-    - File extension is in accepted_formats for that doc_type
-
-    Storage key format: {application_id}/{doc_type}/{uuid}.{ext}
-    Creates Document row with status=PENDING
-    Writes AuditLog row (action="document_uploaded")
+    Enforces applicant ownership or administrative document upload permission.
     """
     # Get application
     application = db.query(Application).filter(Application.id == application_id).first()
@@ -88,6 +81,10 @@ async def upload_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Application with id '{application_id}' not found",
         )
+
+    from app.core.authorization import verify_applicant_ownership_or_permission
+    from app.core.permissions import Permission
+    verify_applicant_ownership_or_permission(current_user, application, Permission.DOCUMENT_UPLOAD)
 
     # Get scheme config
     scheme = application.scheme
@@ -344,16 +341,12 @@ def get_document_file(
             detail="Document does not belong to the specified application",
         )
 
-    # Enforce role / ownership access control when user session is present
-    if current_user:
-        application = db.query(Application).filter(Application.id == document.application_id).first()
-        if application:
-            from app.core.authorization import is_user_authorized_for_application
-            if not is_user_authorized_for_application(current_user, application):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied: User {current_user.email} is not authorized to access documents for application {application.id}",
-                )
+    # Enforce role / ownership access control
+    application = db.query(Application).filter(Application.id == document.application_id).first()
+    if application:
+        from app.core.authorization import verify_document_access
+        from app.core.permissions import Permission
+        verify_document_access(current_user, document, application, Permission.DOCUMENT_VIEW)
 
     file_bytes = None
     try:

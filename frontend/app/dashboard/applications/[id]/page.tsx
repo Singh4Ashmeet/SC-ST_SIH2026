@@ -16,6 +16,7 @@ import {
   type DecisionTraceResponse,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { DecisionPassportView } from "@/components/decision-passport-view";
 import {
   ArrowLeft,
   User,
@@ -88,7 +89,7 @@ export default function ApplicationCaseFilePage() {
   );
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "eligibility" | "documents" | "conflict" | "merit" | "institute" | "grievances" | "audit"
+    "overview" | "passport" | "eligibility" | "documents" | "conflict" | "merit" | "institute" | "grievances" | "audit"
   >("overview");
 
   // Document Viewer Modal State
@@ -227,6 +228,13 @@ export default function ApplicationCaseFilePage() {
 
         {/* Workflow Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/dashboard/applications/${id}/decision-passport`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-stone-950 rounded-lg shadow-sm transition"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Decision Passport
+          </Link>
           {available_transitions.map((t) => (
             <button
               key={t.trigger}
@@ -389,6 +397,7 @@ export default function ApplicationCaseFilePage() {
       <div className="border-b border-stone-200 flex items-center gap-2 overflow-x-auto pb-0.5 text-xs font-bold">
         {[
           { key: "overview", label: "Applicant & Academic", icon: User },
+          { key: "passport", label: "Decision Passport ⭐", icon: Sparkles },
           { key: "eligibility", label: `Eligibility (${eligibility_result?.passed ? "PASS" : "FAIL"})`, icon: FileCheck2 },
           { key: "documents", label: `Documents (${documents.length})`, icon: Cpu },
           { key: "conflict", label: `Cross-Scheme Conflict ${conflict ? "⚠️" : "✓"}`, icon: Shield },
@@ -417,6 +426,11 @@ export default function ApplicationCaseFilePage() {
       </div>
 
       {/* ── TAB CONTENTS ── */}
+
+      {/* TAB: DECISION PASSPORT */}
+      {activeTab === "passport" && (
+        <DecisionPassportView applicationId={id} />
+      )}
 
       {/* TAB 1: OVERVIEW & APPLICANT DETAILS */}
       {activeTab === "overview" && (

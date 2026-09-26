@@ -146,3 +146,78 @@ def require_permission(permission: Permission) -> Callable:
             )
         return user
     return dependency
+
+
+def verify_applicant_ownership_or_permission(
+    user: Optional[User],
+    application: Application,
+    permission: Optional[Permission] = None,
+) -> None:
+    """
+    Enforces applicant ownership and object-level authorization across all application resources.
+    - If user is APPLICANT: strictly verifies application.applicant_email == user.email.
+    - If user is administrative official: verifies permission and operational scope.
+    - If user is unauthenticated: enforces 401 if REQUIRE_APPLICANT_AUTH is enabled.
+    """
+    from app.core.config import get_settings
+    settings = get_settings()
+
+    if user is None:
+        if getattr(settings, "REQUIRE_APPLICANT_AUTH", False):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to access application records",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return
+
+    if user.role == UserRole.SUPER_ADMIN:
+        return
+
+    if user.role == UserRole.APPLICANT:
+        if application.applicant_email.strip().lower() != user.email.strip().lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: You do not own this application record.",
+            )
+        return
+
+    if not is_user_authorized_for_application(user, application, permission):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: Insufficient scope or permissions for application {application.id}",
+        )
+
+
+def verify_document_access(
+    user: Optional[User],
+    document: Any,
+    application: Any,
+    permission: Permission = Permission.DOCUMENT_VIEW,
+) -> None:
+    """Enforces applicant ownership and permission for document access."""
+    verify_applicant_ownership_or_permission(user, application, permission)
+
+
+def verify_grievance_access(
+    user: User,
+    grievance: Any,
+) -> None:
+    """Enforces applicant ownership and role permissions on grievance records."""
+    if user.role == UserRole.SUPER_ADMIN:
+        return
+
+    if user.role == UserRole.APPLICANT:
+        if str(getattr(grievance, "applicant_email", "")).strip().lower() != user.email.strip().lower():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: You can only view or manage your own grievances.",
+            )
+        return
+
+    if not has_permission(user.role, Permission.GRIEVANCE_VIEW):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Requires grievance.view permission.",
+        )
+

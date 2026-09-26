@@ -117,7 +117,33 @@ def get_simulation_detail(
         "base_config_version": sim.base_config_version,
         "base_config": sim.base_config,
         "proposed_config": sim.proposed_config,
+        "status": getattr(sim, "status", "SIMULATED"),
         "results": sim.results,
         "summary": sim.summary,
         "created_at": sim.created_at.isoformat(),
+        "published_at": sim.published_at.isoformat() if getattr(sim, "published_at", None) else None,
     }
+
+
+@router.post("/{simulation_id}/publish")
+def publish_simulation_endpoint(
+    simulation_id: UUID,
+    current_user: Annotated[User, Depends(require_scheme_admin)],
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Publish an approved policy simulation to production.
+    Transitions policy from isolated SIMULATED state to live active scheme configuration.
+    """
+    from app.services.policy_simulation_engine import publish_simulated_policy
+    try:
+        return publish_simulated_policy(
+            db=db,
+            simulation_id=simulation_id,
+            published_by_user=current_user,
+        )
+    except ValueError as val_err:
+        raise HTTPException(status_code=404, detail=str(val_err))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+

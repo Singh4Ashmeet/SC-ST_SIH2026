@@ -18,6 +18,7 @@ from app.models.conflict import Conflict, ConflictStatus, ConflictType
 from app.models.grievance import Grievance, GrievanceStatus, GrievancePriority
 from app.models.notification import Notification, NotificationChannel, DeliveryStatus
 from app.models.institute_verification import InstituteVerification, InstituteVerificationStatus
+from app.models.committee_review import CommitteeReview, CommitteeVote
 from app.models.policy_simulation import PolicySimulation
 
 __all__ = [
@@ -48,5 +49,7 @@ __all__ = [
     "DeliveryStatus",
     "InstituteVerification",
     "InstituteVerificationStatus",
+    "CommitteeReview",
+    "CommitteeVote",
     "PolicySimulation",
 ]

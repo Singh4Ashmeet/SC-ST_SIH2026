@@ -53,6 +53,21 @@ class PolicySimulation(Base, UUIDMixin):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    status: Mapped[str] = mapped_column(
+        String(50),
+        default="SIMULATED",
+        server_default="SIMULATED",
+        nullable=False,
+    )
+    published_by: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    published_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -61,4 +76,5 @@ class PolicySimulation(Base, UUIDMixin):
 
     # Relationships
     scheme = relationship("Scheme")
-    administrator = relationship("User")
+    administrator = relationship("User", foreign_keys=[run_by])
+    publisher = relationship("User", foreign_keys=[published_by])

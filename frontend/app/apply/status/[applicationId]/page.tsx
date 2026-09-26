@@ -9,7 +9,7 @@ import {
   type ApplicationRead, type SchemeRead, type DocumentRead, type DeficiencySummary,
 } from "@/lib/api";
 import {
-  ArrowLeft, Loader2, AlertCircle, CheckCircle2, XCircle, Upload, FileText, Clock, Shield, Info, X,
+  ArrowLeft, Loader2, AlertCircle, CheckCircle2, XCircle, Upload, FileText, Clock, Shield, Info, X, Sparkles,
 } from "lucide-react";
 
 const STATE_MESSAGES: Record<string, { label: string; description: string; color: string }> = {
@@ -34,17 +34,23 @@ export default function ApplicationStatusPage() {
   const [resubmitError, setResubmitError] = useState<string | null>(null);
 
   const { data: application, isLoading: appLoading, mutate: mutateApp } = useSWR<ApplicationRead>(
-    applicationId ? `/api/applications/${applicationId}` : null, () => getApplication(applicationId!)
+    applicationId ? `/api/applications/${applicationId}` : null,
+    () => getApplication(applicationId!),
+    { refreshInterval: 4000 }
   );
   const { data: scheme, isLoading: schemeLoading } = useSWR<SchemeRead>(
-    application?.scheme_id ? `/api/schemes/${application.scheme_id}` : null, () => getScheme(application!.scheme_id)
+    application?.scheme_id ? `/api/schemes/${application.scheme_id}` : null,
+    () => getScheme(application!.scheme_id)
   );
   const { data: documents, isLoading: docsLoading, mutate: mutateDocs } = useSWR<DocumentRead[]>(
-    applicationId ? `/api/applications/${applicationId}/documents` : null, () => getDocuments(applicationId!)
+    applicationId ? `/api/applications/${applicationId}/documents` : null,
+    () => getDocuments(applicationId!),
+    { refreshInterval: 4000 }
   );
   const { data: deficiencySummary } = useSWR<DeficiencySummary>(
     application?.current_state === "deficient" && applicationId ? `/api/applications/${applicationId}/deficiency-summary` : null,
-    () => getDeficiencySummary(applicationId!)
+    () => getDeficiencySummary(applicationId!),
+    { refreshInterval: 4000 }
   );
 
   const currentState = application?.current_state || "submitted";
@@ -89,7 +95,17 @@ export default function ApplicationStatusPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Link href="/apply" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900"><ArrowLeft className="w-3.5 h-3.5" /> Back to Schemes</Link>
+      <div className="flex items-center justify-between">
+        <Link href="/apply" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900">
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Schemes
+        </Link>
+        <Link
+          href={`/dashboard/applications/${applicationId}/decision-passport`}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs shadow-sm transition"
+        >
+          <Sparkles className="w-3.5 h-3.5" /> View Official Decision Passport
+        </Link>
+      </div>
 
       {/* Status Banner */}
       <div className={`rounded-xl p-6 border shadow-sm ${
@@ -157,18 +173,40 @@ export default function ApplicationStatusPage() {
             </div>
           )}
           {deficientDocs.map((doc) => (
-            <div key={doc.id} className="bg-white rounded-lg p-3 border border-rose-200">
-              <div className="flex items-center justify-between">
+            <div key={doc.id} className="bg-white rounded-lg p-4 border border-rose-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-rose-100 pb-2">
                 <div>
-                  <div className="text-xs font-mono font-medium text-rose-700">{doc.doc_type}</div>
-                  {doc.deficiency_reasons?.map((r, i) => (
-                    <div key={i} className="text-[11px] text-rose-500 mt-0.5">{r.message}</div>
-                  ))}
+                  <span className="text-xs font-bold text-rose-800 uppercase block">{doc.doc_type.replace(/_/g, " ")}</span>
+                  <span className="text-[10px] text-stone-500 font-mono">Document ID: {doc.id.slice(0, 8)}...</span>
                 </div>
-                <button onClick={() => { setResubmitDoc(doc); setResubmitFile(null); setResubmitError(null); }}
-                  className="px-3 py-1.5 text-[11px] font-semibold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-lg transition flex items-center gap-1">
-                  <Upload className="w-3 h-3" /> Resubmit
+                <button
+                  onClick={() => { setResubmitDoc(doc); setResubmitFile(null); setResubmitError(null); }}
+                  className="px-3.5 py-1.5 text-xs font-bold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-lg transition flex items-center gap-1.5 shadow-sm"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Upload Replacement
                 </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-rose-50/50 p-3 rounded border border-rose-100">
+                <div>
+                  <span className="font-bold text-rose-900 block text-[10px] uppercase">Problem Identified:</span>
+                  <p className="text-rose-700 mt-0.5">
+                    {doc.deficiency_reasons && doc.deficiency_reasons.length > 0
+                      ? doc.deficiency_reasons.map((r: any) => r.message || r).join("; ")
+                      : "Document does not satisfy mandatory scheme validation rules or certificate is invalid/expired."}
+                  </p>
+                </div>
+                <div>
+                  <span className="font-bold text-stone-700 block text-[10px] uppercase">What You Need To Do:</span>
+                  <p className="text-stone-600 mt-0.5">
+                    Upload an authentic, clear certificate issued by a competent revenue or academic authority with legible seals.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
+                <span><strong>Required Format:</strong> PDF or high-resolution JPEG (Max 10MB)</span>
+                <span><strong>Resolution Window:</strong> 15 working days</span>
               </div>
             </div>
           ))}

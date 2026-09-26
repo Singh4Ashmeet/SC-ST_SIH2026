@@ -22,6 +22,9 @@ from app.api.merit import router as merit_router
 from app.api.conflicts import router as conflicts_router
 from app.api.grievances import router as grievances_router
 from app.api.simulations import router as simulations_router
+from app.api.notifications import router as notifications_router
+from app.api.committee import router as committee_router
+from app.api.integrations import router as integrations_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(auth_router)
@@ -40,5 +43,8 @@ api_router.include_router(merit_router)
 api_router.include_router(conflicts_router)
 api_router.include_router(grievances_router)
 api_router.include_router(simulations_router)
+api_router.include_router(notifications_router)
+api_router.include_router(committee_router)
+api_router.include_router(integrations_router)
 
 __all__ = ["api_router"]

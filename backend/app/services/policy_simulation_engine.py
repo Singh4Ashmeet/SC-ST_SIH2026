@@ -26,6 +26,28 @@ from app.services.scheme_config_validator import validate_scheme_config
 logger = logging.getLogger(__name__)
 
 
+def _get_configurable_grant_amount(proposed_config_dict: Dict[str, Any], scheme: Scheme) -> float:
+    """Extract configurable fellowship/grant amount from policy or scheme config."""
+    fin = proposed_config_dict.get("financial_allocation", {}) or proposed_config_dict.get("financial_rules", {})
+    if "annual_grant_per_student" in fin:
+        return float(fin["annual_grant_per_student"])
+    if "annual_fellowship_amount" in proposed_config_dict:
+        return float(proposed_config_dict["annual_fellowship_amount"])
+    
+    base_cfg = scheme.config or {}
+    base_fin = base_cfg.get("financial_allocation", {}) or base_cfg.get("financial_rules", {})
+    if "annual_grant_per_student" in base_fin:
+        return float(base_fin["annual_grant_per_student"])
+    if "annual_fellowship_amount" in base_cfg:
+        return float(base_cfg["annual_fellowship_amount"])
+
+    if "NFST" in getattr(scheme, "code", ""):
+        return 372000.0  # National Fellowship for ST JRF benchmark
+    elif "NOS" in getattr(scheme, "code", ""):
+        return 1500000.0  # National Overseas Scholarship benchmark
+    return 300000.0
+
+
 def simulate_policy_change(
     db: Session,
     scheme_id: UUID,
@@ -200,7 +222,7 @@ def simulate_policy_change(
                 f"📊 {len(mi['score_changes'])} applicant(s) would see score changes."
             )
 
-        # Document and financial impact calculation (Phase 9)
+        # Document and financial impact calculation
         doc_impact = 0
         if "required_documents" in proposed_config_dict:
             curr_doc_types = {d.doc_type for d in current_config.required_documents}
@@ -208,24 +230,46 @@ def simulate_policy_change(
             if curr_doc_types != prop_doc_types:
                 doc_impact = len(applications)
 
-        annual_fellowship_amount = 372000  # Standard MoTA annual grant (₹31,000/mo)
+        annual_fellowship_amount = _get_configurable_grant_amount(proposed_config_dict, scheme)
         net_eligible_diff = results["eligibility_impact"]["newly_eligible"] - results["eligibility_impact"]["newly_ineligible"]
         est_financial = net_eligible_diff * annual_fellowship_amount
         results["document_impact"] = doc_impact
         results["estimated_financial_impact"] = est_financial
+        results["grant_amount_per_student_applied"] = annual_fellowship_amount
         results["financial_impact_formatted"] = (
             f"₹{abs(est_financial):,.0f}" + (" additional budget required" if est_financial >= 0 else " estimated savings")
         )
 
+        # Workload and Operational Scrutiny Impact
+        results["workload_impact"] = {
+            "additional_scrutiny_reviews": results["eligibility_impact"]["newly_eligible"],
+            "projected_deficiency_workload": int(results["eligibility_impact"]["newly_eligible"] * 0.22),
+            "percentage_workload_change": round((net_eligible_diff / max(len(applications), 1)) * 100, 1),
+        }
+
+        # Policy Rule Comparison Diff
+        curr_rules_map = {r.field: r for r in current_config.eligibility_rules}
+        policy_diffs = []
+        for r in proposed_config.eligibility_rules:
+            old_r = curr_rules_map.get(r.field)
+            policy_diffs.append({
+                "field": r.field,
+                "current_rule": str(old_r.condition) if old_r else "Not present in baseline",
+                "proposed_rule": str(r.condition),
+                "is_modified": str(old_r.condition) != str(r.condition) if old_r else True,
+            })
+        results["policy_comparison_diff"] = policy_diffs
+
         results["summary"] = " ".join(summary_parts)
 
-    # ── Persist simulation record ──
+    # ── Persist simulation record in isolated DRAFT/SIMULATED state ──
     simulation = PolicySimulation(
         scheme_id=scheme_id,
         simulation_name=simulation_name or f"Simulation v{current_config.version} → proposed",
         base_config_version=current_config.version,
         base_config=scheme.config,
         proposed_config=proposed_config_dict,
+        status="SIMULATED",
         results=results,
         summary=results.get("summary", ""),
         run_by=run_by,
@@ -234,6 +278,7 @@ def simulate_policy_change(
     db.flush()
 
     results["simulation_id"] = str(simulation.id)
+    results["status"] = "SIMULATED"
     results["valid"] = True
 
     logger.info(
@@ -242,6 +287,56 @@ def simulate_policy_change(
     )
 
     return results
+
+
+def publish_simulated_policy(
+    db: Session,
+    simulation_id: UUID,
+    published_by_user: Any,
+) -> Dict[str, Any]:
+    """
+    Publish an approved policy simulation into production.
+    Safely transitions from SIMULATED -> PUBLISHED and updates the active scheme config.
+    """
+    simulation = db.execute(select(PolicySimulation).where(PolicySimulation.id == simulation_id)).scalar_one_or_none()
+    if not simulation:
+        raise ValueError(f"Simulation {simulation_id} not found")
+
+    scheme = db.execute(select(Scheme).where(Scheme.id == simulation.scheme_id)).scalar_one_or_none()
+    if not scheme:
+        raise ValueError("Scheme not found")
+
+    # Increment scheme version and update production config
+    new_config = dict(simulation.proposed_config)
+    new_version = getattr(scheme, "config", {}).get("version", 1) + 1
+    new_config["version"] = new_version
+
+    scheme.config = new_config
+    simulation.status = "PUBLISHED"
+    simulation.published_by = published_by_user.id
+    simulation.published_at = datetime.utcnow()
+
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
+        scheme_id=scheme.id,
+        actor_user_id=published_by_user.id,
+        action="policy_published",
+        details={
+            "simulation_id": str(simulation.id),
+            "previous_version": simulation.base_config_version,
+            "new_version": new_version,
+            "summary": simulation.summary,
+        }
+    )
+    db.commit()
+    return {
+        "status": "PUBLISHED",
+        "scheme_id": str(scheme.id),
+        "scheme_code": scheme.code,
+        "new_version": new_version,
+        "published_at": simulation.published_at.isoformat(),
+    }
 
 
 def build_decision_trace(db: Session, application_id: UUID) -> Dict[str, Any]:

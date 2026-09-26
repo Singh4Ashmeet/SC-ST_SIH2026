@@ -72,6 +72,7 @@ def list_audit_logs(
     }
 
 
+from app.core.deps import require_any_role, require_super_admin
 from app.services.audit_service import verify_hash_chain, simulate_tampering, restore_tampering
 
 
@@ -89,23 +90,26 @@ def verify_audit_log_integrity(
 
 @router.post("/simulate-tamper")
 def simulate_audit_tampering(
-    current_user: Annotated[User, Depends(require_any_role)],
+    current_user: Annotated[User, Depends(require_super_admin)],
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
-    Demo simulation for hackathon judges: deliberately alter an audit record
+    Privileged simulation for authorized administrators: deliberately alter an audit record
     to showcase instant cryptographic tamper detection by the SHA-256 hash chain.
+    Strictly restricted to SUPER_ADMIN to prevent unauthorized tampering.
     """
     return simulate_tampering(db)
 
 
 @router.post("/restore")
 def restore_audit_chain(
-    current_user: Annotated[User, Depends(require_any_role)],
+    current_user: Annotated[User, Depends(require_super_admin)],
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Restore the audit hash chain to a pristine, fully verified state after tamper demonstration.
+    Strictly restricted to SUPER_ADMIN.
     """
     return restore_tampering(db)
+
 

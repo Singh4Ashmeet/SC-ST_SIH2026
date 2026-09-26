@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { getScheme, createApplication, type SchemeRead, type FormFieldSchema } from "@/lib/api";
-import { ArrowLeft, Loader2, AlertCircle, CheckCircle2, User, FileText, Info, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, CheckCircle2, User, FileText, Info, ShieldCheck, Sparkles } from "lucide-react";
+import { AssistedApplicationMode } from "@/components/assisted-mode";
 
 interface RenderableField {
   key: string;
@@ -26,6 +27,7 @@ export default function ApplicationFormPage() {
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showAssistedMode, setShowAssistedMode] = useState<boolean>(false);
 
   const { data: scheme, isLoading, error } = useSWR<SchemeRead>(
     schemeId ? `/api/schemes/${schemeId}` : null,
@@ -105,8 +107,8 @@ export default function ApplicationFormPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setSubmitError(null);
 
     if (!validateForm()) {
@@ -205,7 +207,32 @@ export default function ApplicationFormPage() {
         {scheme.description && (
           <p className="text-xs text-gray-500 mt-1 max-w-2xl leading-relaxed">{scheme.description}</p>
         )}
+
+        <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-stone-600">
+            Need step-by-step guidance in English or हिन्दी?
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowAssistedMode(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold shadow-sm transition"
+          >
+            <Sparkles className="w-3.5 h-3.5" /> Launch Assisted Mode (हिन्दी / English)
+          </button>
+        </div>
       </div>
+
+      {showAssistedMode && (
+        <AssistedApplicationMode
+          schemeName={scheme.name}
+          schemeCode={scheme.code}
+          formData={formData}
+          onUpdateField={handleChange}
+          onSubmit={() => handleSubmit()}
+          isSubmitting={isSubmitting}
+          onClose={() => setShowAssistedMode(false)}
+        />
+      )}
 
       {submitError && (
         <div className="flex items-start gap-2.5 p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs">

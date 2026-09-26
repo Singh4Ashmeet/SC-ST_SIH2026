@@ -915,4 +915,25 @@ export async function replayDecision(
   });
 }
 
+export async function getDecisionPassport(applicationId: string): Promise<any> {
+  return apiFetch<any>(`/api/applications/${applicationId}/decision-passport`);
+}
+
+export async function getIntegrationStatus(): Promise<any> {
+  return apiFetch<any>(`/api/integrations/status`);
+}
+
+export async function verifyCertificateSandbox(params: {
+  document_type: string;
+  certificate_number: string;
+  applicant_name: string;
+  state?: string;
+  provider?: string;
+}): Promise<any> {
+  return apiFetch<any>(`/api/integrations/verify-certificate`, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
+
 

@@ -5,11 +5,14 @@ Endpoints for creating applications, querying state, triggering transitions,
 and retrieving audit logs.
 """
 
+import logging
 import uuid
 from typing import Annotated, Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.core.cache import cache
 from app.core.database import get_db
@@ -174,14 +177,14 @@ def get_application(
     current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> Application:
-    """Fetch an application by ID with its current state. Enforces RBAC/ownership authorization when authenticated."""
+    """Fetch an application by ID with its current state. Enforces applicant ownership and role-scoped authorization."""
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
-    if current_user:
-        from app.core.authorization import is_user_authorized_for_application
-        if not is_user_authorized_for_application(current_user, application):
-            raise HTTPException(status_code=403, detail="Access denied to application")
+    
+    from app.core.authorization import verify_applicant_ownership_or_permission
+    from app.core.permissions import Permission
+    verify_applicant_ownership_or_permission(current_user, application, Permission.APPLICATION_VIEW)
     return application
 
 
@@ -624,6 +627,45 @@ def get_case_file(
         "sla": sla_data,
         "case_decision_summary": case_decision_summary,
     }
+
+
+@router.get("/{application_id}/decision-passport")
+def get_application_decision_passport(
+    application_id: uuid.UUID,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Decision Passport (Flagship): Unified, explainable snapshot detailing:
+    1. Application Summary
+    2. Eligibility Breakdown with document evidence mapping
+    3. Document Evidence with field-level confidence & source region snippets
+    4. AI / Document Intelligence confidence & uncertainty routing
+    5. Deficiencies & resubmissions
+    6. Merit Scoring calculation & ranking
+    7. Human Scrutiny oversight
+    8. Committee Integrity, quorum, and conflict status
+    9. Post-selection / financial disbursement tracking
+    10. Cryptographic SHA-256 chained audit link
+    """
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if current_user:
+        from app.core.authorization import is_user_authorized_for_application
+        if not is_user_authorized_for_application(current_user, application):
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied: You do not have permission to view application {application_id}",
+            )
+
+    from app.services.decision_passport_service import build_decision_passport
+    try:
+        return build_decision_passport(db, application_id)
+    except Exception as exc:
+        logger.error(f"Failed to build decision passport for {application_id}: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate decision passport: {str(exc)}")
 
 
 @router.get("/{application_id}/decision-trace")

@@ -88,9 +88,13 @@ def create_grievance(
     }
 
 
+from app.core.authorization import verify_grievance_access
+from app.core.permissions import Permission, has_permission
+
+
 @router.get("")
 def list_grievances(
-    current_user: Annotated[User, Depends(require_any_role)],
+    current_user: Annotated[User, Depends(get_current_user)],
     status_filter: Optional[str] = Query(None),
     priority_filter: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -98,9 +102,18 @@ def list_grievances(
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
-    List grievances with optional filters. Requires admin role.
+    List grievances with optional filters.
+    Applicants strictly see only their own grievances; officials require GRIEVANCE_VIEW permission.
     """
     query = select(Grievance)
+
+    if current_user.role == UserRole.APPLICANT:
+        query = query.where(Grievance.applicant_email.ilike(current_user.email))
+    elif not has_permission(current_user.role, Permission.GRIEVANCE_VIEW):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied to view grievances",
+        )
 
     if status_filter:
         try:
@@ -154,10 +167,10 @@ def list_grievances(
 @router.get("/{grievance_id}")
 def get_grievance(
     grievance_id: UUID,
-    current_user: Annotated[User, Depends(require_any_role)],
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
-    """Get grievance details."""
+    """Get grievance details. Enforces ownership check against IDOR."""
     g = db.execute(
         select(Grievance).where(Grievance.id == grievance_id)
     ).scalar_one_or_none()
@@ -167,6 +180,8 @@ def get_grievance(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Grievance not found",
         )
+
+    verify_grievance_access(current_user, g)
 
     now = datetime.now(timezone.utc)
 

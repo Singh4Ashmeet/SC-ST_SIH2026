@@ -122,24 +122,34 @@ The seed script (`backend/scripts/seed_demo.py`) initializes standard personas f
 
 ---
 
+## 📖 Comprehensive Engineering & Demonstration Documentation
+
+Yojana Setu includes comprehensive architectural, security, benchmark, and defense documentation:
+
+| Document | Focus & Highlights |
+| :--- | :--- |
+| **[SIH Readiness & Defense Guide](SIH_READINESS.md)** | Key differentiators, judge defense scripts, and factual answers |
+| **[Comprehensive Implementation Report](IMPLEMENTATION_REPORT.md)** | Full requirement matrix, code changes, and test validation summary |
+| **[System Architecture](docs/ARCHITECTURE.md)** | End-to-end dataflow, JSON-Logic rules, and subsystem design |
+| **[Security & Privacy Architecture](docs/SECURITY.md)** | Object-level authorization, anti-IDOR guards, and PII protection |
+| **[Flagship Decision Passport](docs/DECISION_PASSPORT.md)** | Read-model aggregation, explainability design, and UI specs |
+| **[Document AI Benchmark Report](docs/DOCUMENT_AI_BENCHMARK.md)** | Evaluation results from 368 synthetic document corpus run |
+| **[Policy Impact Simulator](docs/POLICY_SIMULATION.md)** | What-if policy sandbox, budget delta forecasting, and lifecycle |
+| **[Government Integration Gateway](docs/INTEGRATIONS.md)** | DigiLocker, API Setu, PFMS, and DBT Bharat sandbox adapters |
+| **[5-7 Minute Demonstration Guide](docs/DEMO_GUIDE.md)** | Step-by-step evaluator presentation script with 6 personas |
+| **[Test Suite & Verification Guide](docs/TESTING.md)** | 186 unit/integration tests execution and coverage breakdown |
+
+---
+
 ## 🎬 Demonstration Rehearsal Run-of-Show
 
 For judging presentations and evaluation walkthroughs, follow the comprehensive script in:
-👉 **[DEMO_SCRIPT.md](DEMO_SCRIPT.md)**
+👉 **[docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md)** and **[DEMO_SCRIPT.md](DEMO_SCRIPT.md)**
 
-It covers:
-1. **Act 1: Configurability Proof**: Side-by-side contrast of NFST and NOS configs (*same engine, zero code changes*).
-2. **Act 2: Scenario 1 (NFST Golden Path)**: End-to-end completed fellowship with verified OCR fields, committee resolution, and post-selection disbursements/renewals.
-3. **Act 3: Scenario 2 (NOS Overseas Scholarship)**: International credentials, unconditional foreign admission offer, and overseas wire remittance.
-4. **Act 4: Scenario 3 (Unhappy Path & Live Resubmission)**: Stacked deficiency reasons (`EXPIRED_DATE`, `FORMAT_INVALID`, `MISSING_FIELD`) → citizen view at `/apply/status/[id]` → live replacement upload with real-time transition out of `deficient`.
-5. **Act 5: Scenario 4 (Automated Ineligibility)**: Evaluation matrix recording 3 simultaneously-failing rules in the transparent audit log.
-6. **Act 6: Selection Committee Action**: 1-click committee approval on Tanvi Kamble unlocking post-selection.
-7. **Act 7: Executive Dashboard Overview**: Aggregate overview metrics, visual distribution bars, and live activity feeds.
-
-To verify all demonstration endpoints in automated fashion, run:
+To verify all test suites and demonstration endpoints, run:
 ```bash
 cd backend
-python scripts/dry_run_test.py
+python -m pytest -q tests/
 ```
 
 ---

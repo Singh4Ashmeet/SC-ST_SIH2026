@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import (
     get_current_user,
+    get_optional_current_user,
     require_any_role,
     require_scrutiny_officer,
 )
@@ -20,7 +21,7 @@ from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.models.document import Document, DocumentStatus
 from app.models.scheme import Scheme
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.application import ApplicationRead
 from app.schemas.document import DocumentRead
 from app.services.scheme_config_validator import validate_scheme_config
@@ -62,6 +63,7 @@ def _validate_file_extension(filename: str, accepted_formats: List[str]) -> bool
 )
 def run_document_scrutiny(
     application_id: uuid.UUID,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
@@ -71,15 +73,33 @@ def run_document_scrutiny(
     to either 'selection' (if all verified) or 'deficient' (if any issues).
 
     Requires SCRUTINY_OFFICER or SUPER_ADMIN role.
-
-    Returns:
-        Updated application + full per-document deficiency breakdown
     """
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Application with id '{application_id}' not found",
+        )
+
+    from app.core.config import get_settings
+    from app.core.permissions import Permission, has_permission
+    settings = get_settings()
+
+    if current_user:
+        if current_user.role == UserRole.APPLICANT:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Applicants cannot trigger administrative document scrutiny",
+            )
+        if not has_permission(current_user.role, Permission.SCRUTINY_RUN):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Requires scrutiny.run",
+            )
+    elif getattr(settings, "REQUIRE_APPLICANT_AUTH", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
         )
 
     engine = WorkflowEngine(db)
@@ -123,15 +143,12 @@ def run_document_scrutiny(
 )
 def get_deficiency_summary(
     application_id: uuid.UUID,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Get read-only view of current deficiency state across all documents.
-
-    Does not trigger any state transitions. Any authenticated role or applicant portal can access.
-
-    Returns:
-        Per-document deficiency status and reasons
+    Enforces applicant ownership or official review permissions.
     """
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
@@ -139,6 +156,10 @@ def get_deficiency_summary(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Application with id '{application_id}' not found",
         )
+
+    from app.core.authorization import verify_applicant_ownership_or_permission
+    from app.core.permissions import Permission
+    verify_applicant_ownership_or_permission(current_user, application, Permission.APPLICATION_VIEW)
 
     documents = db.query(Document).filter(Document.application_id == application_id).all()
 
@@ -168,9 +189,6 @@ def get_deficiency_summary(
     }
 
 
-# Intentionally unauthenticated: applicant self-service document resubmission.
-# Access control is via the unguessable applicationId in the URL,
-# per the plan's stated hackathon-scope limitation.
 @router.post(
     "/{application_id}/documents/{document_id}/resubmit",
     response_model=Dict[str, Any],
@@ -180,19 +198,12 @@ async def resubmit_document(
     application_id: uuid.UUID,
     document_id: uuid.UUID,
     file: Annotated[UploadFile, File(...)],
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Resubmit a replacement file for a specific deficient document.
-
-    Uploads new file, re-runs OCR/extraction/deficiency check.
-    If application is in 'deficient' state and ALL documents are now VERIFIED,
-    auto-transitions via 'resubmitted' trigger.
-
-    Requires any authenticated role (applicant can resubmit their own docs).
-
-    Returns:
-        Updated document + application state + whether auto-transition occurred
+    Enforces applicant ownership: applicants can only resubmit documents for their own applications.
     """
     application = db.query(Application).filter(Application.id == application_id).first()
     if not application:
@@ -200,6 +211,10 @@ async def resubmit_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Application with id '{application_id}' not found",
         )
+
+    from app.core.authorization import verify_applicant_ownership_or_permission
+    from app.core.permissions import Permission
+    verify_applicant_ownership_or_permission(current_user, application, Permission.DEFICIENCY_RESOLVE)
 
     document = db.query(Document).filter(Document.id == document_id).first()
     if not document:
