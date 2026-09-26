@@ -364,6 +364,14 @@ export async function runDocumentScrutiny(
   );
 }
 
+export async function reprocessDocument(
+  documentId: string
+): Promise<DocumentRead> {
+  return apiFetch<DocumentRead>(`/api/applications/documents/${documentId}/reprocess`, {
+    method: "POST",
+  });
+}
+
 export async function runEligibilityCheck(
   applicationId: string
 ): Promise<Record<string, unknown>> {
@@ -644,3 +652,79 @@ export async function getSimulationHistory(schemeId: string): Promise<Record<str
 export async function getSimulationDetail(simulationId: string): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>(`/api/simulations/${simulationId}`);
 }
+
+// ── Case File Consolidated API ────────────────────────────────────────────────
+
+export interface CaseFileData {
+  application: ApplicationRead;
+  scheme: {
+    id: string;
+    code: string;
+    name: string;
+    description?: string;
+    workflow_states: Array<{ name: string; label: string }>;
+    required_documents: Array<{ doc_type: string; label: string; required: boolean }>;
+  } | null;
+  documents: Array<{
+    id: string;
+    doc_type: string;
+    status: string;
+    extracted_fields: Record<string, any> | null;
+    deficiency_reasons: Array<any> | null;
+    uploaded_at: string | null;
+    download_url: string;
+  }>;
+  eligibility_result: {
+    passed: boolean;
+    failed_rules: Array<{ field: string; failure_message: string; condition: any }>;
+  } | null;
+  conflict: {
+    id: string;
+    status: string;
+    match_confidence: number;
+    matching_signals: Record<string, any>;
+    resolution_notes?: string;
+  } | null;
+  merit: {
+    id: string;
+    academic_score: number;
+    research_score: number;
+    experience_score: number;
+    preference_score: number;
+    total_score: number;
+    rank?: number;
+    decision: string;
+    committee_remarks?: string;
+  } | null;
+  institute_verification: {
+    id: string;
+    institution_name: string;
+    institution_code?: string;
+    status: string;
+    remarks?: string;
+    query_details?: string;
+    verified_at?: string;
+  } | null;
+  grievances: Array<any>;
+  audit_logs: Array<{
+    id: string;
+    action: string;
+    from_state: string | null;
+    to_state: string | null;
+    actor_user_id: string | null;
+    details: Record<string, any> | null;
+    created_at: string;
+  }>;
+  available_transitions: Array<{
+    trigger: string;
+    from_state: string;
+    to_state: string;
+    label: string;
+  }>;
+  current_user_role: string;
+}
+
+export async function getCaseFile(applicationId: string): Promise<CaseFileData> {
+  return apiFetch<CaseFileData>(`/api/applications/${applicationId}/case-file`);
+}
+

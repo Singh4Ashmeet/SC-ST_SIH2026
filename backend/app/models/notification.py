@@ -71,7 +71,8 @@ class Notification(Base, UUIDMixin):
         server_default=DeliveryStatus.SIMULATED.value,
         nullable=False,
     )
-    metadata: Mapped[Optional[dict]] = mapped_column(
+    extra_metadata: Mapped[Optional[dict]] = mapped_column(
+        "metadata",
         JSONB,
         nullable=True,
     )

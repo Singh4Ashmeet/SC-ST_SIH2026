@@ -13,15 +13,20 @@ from sqlalchemy.orm import Session
 
 from app.core.cache import cache
 from app.core.database import get_db
-from app.core.deps import get_current_user, require_any_role
+from app.core.deps import get_current_user, require_any_role, get_optional_current_user
 from app.models.application import Application
 from app.models.audit_log import AuditLog
+from app.models.document import Document
+from app.models.conflict import Conflict
+from app.models.merit_evaluation import MeritEvaluation
+from app.models.institute_verification import InstituteVerification
+from app.models.grievance import Grievance
 from app.models.scheme import Scheme
 from app.models.user import User
 from app.schemas.application import ApplicationCreate, ApplicationRead
 from app.schemas.scheme_config import WorkflowTransition
 from app.services.workflow_engine import WorkflowEngine, InvalidTransitionError
-from app.services.eligibility_engine import EligibilityResult, FailedRule
+from app.services.eligibility_engine import EligibilityResult, FailedRule, evaluate_eligibility
 from app.services.notification_service import notification_service, NotificationEvent
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
@@ -328,3 +333,162 @@ def run_eligibility_check(
         application=updated_application,
         eligibility_result=eligibility_result_read
     )
+
+
+@router.get("/{application_id}/case-file")
+def get_case_file(
+    application_id: uuid.UUID,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Unified Application Case File endpoint.
+    Aggregates all application information, scheme config, documents, OCR findings,
+    eligibility checks, conflicts, merit evaluation, institute verification,
+    grievances, audit trail, and role-permitted workflow actions into one screen payload.
+    """
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    scheme = application.scheme
+    from app.services.scheme_config_validator import validate_scheme_config
+    scheme_config = validate_scheme_config(scheme.config) if scheme else None
+
+    # 1. Documents & Extracted Fields
+    documents = db.query(Document).filter(Document.application_id == application_id).all()
+    doc_list = []
+    for d in documents:
+        doc_list.append({
+            "id": str(d.id),
+            "doc_type": d.doc_type,
+            "status": d.status.value if hasattr(d.status, "value") else str(d.status),
+            "extracted_fields": d.extracted_fields,
+            "deficiency_reasons": d.deficiency_reasons,
+            "uploaded_at": d.uploaded_at.isoformat() if d.uploaded_at else None,
+            "download_url": f"/api/applications/documents/{d.id}/file",
+        })
+
+    # 2. Eligibility Evaluation
+    eligibility_result = None
+    if scheme:
+        try:
+            eval_res = evaluate_eligibility(scheme.config, application.applicant_data)
+            eligibility_result = {
+                "passed": eval_res.passed,
+                "failed_rules": [
+                    {
+                        "field": fr.field,
+                        "failure_message": fr.failure_message,
+                        "condition": fr.condition,
+                    }
+                    for fr in eval_res.failed_rules
+                ]
+            }
+        except Exception:
+            pass
+
+    # 3. Cross-Scheme Conflict
+    conflict = db.query(Conflict).filter(
+        (Conflict.primary_application_id == application_id) | 
+        (Conflict.conflicting_application_id == application_id)
+    ).first()
+    conflict_data = None
+    if conflict:
+        conflict_data = {
+            "id": str(conflict.id),
+            "status": conflict.status.value if hasattr(conflict.status, "value") else str(conflict.status),
+            "match_confidence": conflict.match_confidence,
+            "matching_signals": conflict.matching_signals,
+            "resolution_notes": conflict.resolution_notes,
+        }
+
+    # 4. Merit Evaluation
+    merit = db.query(MeritEvaluation).filter(MeritEvaluation.application_id == application_id).first()
+    merit_data = None
+    if merit:
+        merit_data = {
+            "id": str(merit.id),
+            "academic_score": merit.academic_score,
+            "research_score": merit.research_score,
+            "experience_score": merit.experience_score,
+            "preference_score": merit.preference_score,
+            "total_score": merit.total_score,
+            "rank": merit.rank,
+            "decision": merit.decision.value if hasattr(merit.decision, "value") else str(merit.decision),
+            "committee_remarks": merit.committee_remarks,
+        }
+
+    # 5. Institute Verification
+    inst_ver = db.query(InstituteVerification).filter(InstituteVerification.application_id == application_id).first()
+    inst_data = None
+    if inst_ver:
+        inst_data = {
+            "id": str(inst_ver.id),
+            "institution_name": inst_ver.institution_name,
+            "institution_code": inst_ver.institution_code,
+            "status": inst_ver.status.value if hasattr(inst_ver.status, "value") else str(inst_ver.status),
+            "remarks": inst_ver.remarks,
+            "query_details": inst_ver.query_details,
+            "verified_at": inst_ver.verified_at.isoformat() if inst_ver.verified_at else None,
+        }
+
+    # 6. Grievances
+    grievances = db.query(Grievance).filter(Grievance.application_id == application_id).all()
+    grievance_list = [
+        {
+            "id": str(g.id),
+            "grievance_number": g.grievance_number,
+            "category": g.category.value if hasattr(g.category, "value") else str(g.category),
+            "subject": g.subject,
+            "status": g.status.value if hasattr(g.status, "value") else str(g.status),
+            "priority": g.priority.value if hasattr(g.priority, "value") else str(g.priority),
+            "created_at": g.created_at.isoformat() if g.created_at else None,
+        }
+        for g in grievances
+    ]
+
+    # 7. Audit Trail Timeline
+    audit_logs = db.query(AuditLog).filter(AuditLog.application_id == application_id).order_by(AuditLog.created_at.asc()).all()
+    audit_list = [
+        {
+            "id": str(a.id),
+            "action": a.action,
+            "from_state": a.from_state,
+            "to_state": a.to_state,
+            "actor_user_id": str(a.actor_user_id) if a.actor_user_id else None,
+            "details": a.details,
+            "created_at": a.created_at.isoformat() if a.created_at else None,
+        }
+        for a in audit_logs
+    ]
+
+    # 8. Available Transitions for current role
+    engine = WorkflowEngine(db)
+    user_role = current_user.role.value if current_user else "APPLICANT"
+    transitions = engine.get_available_transitions(application, user_role=user_role)
+    available_transitions = [
+        {"trigger": t.trigger, "from_state": t.from_state, "to_state": t.to_state, "label": t.trigger.replace("_", " ").title()}
+        for t in transitions
+    ]
+
+    return {
+        "application": ApplicationRead.model_validate(application),
+        "scheme": {
+            "id": str(scheme.id),
+            "code": scheme.code,
+            "name": scheme.name,
+            "description": scheme.description,
+            "workflow_states": [ws.model_dump() for ws in scheme_config.workflow_states] if scheme_config else [],
+            "required_documents": [rd.model_dump() for rd in scheme_config.required_documents] if scheme_config else [],
+        } if scheme else None,
+        "documents": doc_list,
+        "eligibility_result": eligibility_result,
+        "conflict": conflict_data,
+        "merit": merit_data,
+        "institute_verification": inst_data,
+        "grievances": grievance_list,
+        "audit_logs": audit_list,
+        "available_transitions": available_transitions,
+        "current_user_role": user_role,
+    }
