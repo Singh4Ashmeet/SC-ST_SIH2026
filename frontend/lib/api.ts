@@ -616,7 +616,16 @@ export async function getGrievanceStats(): Promise<Record<string, unknown>> {
   return apiFetch<Record<string, unknown>>("/api/grievances/stats/overview");
 }
 
-// ── Policy Simulation API ────────────────────────────────────────────────────
+export interface PolicySimulationResult {
+  total_applicants_evaluated: number;
+  current_eligible_count: number;
+  proposed_eligible_count: number;
+  eligible_count_delta: number;
+  net_budget_delta: number;
+  newly_eligible_count: number;
+  newly_ineligible_count: number;
+  [key: string]: any;
+}
 
 export async function runPolicySimulation(
   schemeId: string,

@@ -1,85 +1,34 @@
 """
-Tests for Cross-Scheme Conflict and Duplicate Detection Engine.
+Tests for Conflict Engine identity matching logic.
 """
 
-import pytest
-from app.services.conflict_engine import (
-    ConflictSignal,
-    ConflictResult,
-    calculate_identity_similarity,
-)
+from app.services.conflict_engine import _compute_match_confidence, _name_similarity
 
 
-def test_calculate_identity_similarity_exact_match():
-    details = calculate_identity_similarity(
-        app1_data={
-            "aadhaar_hash": "hash_12345",
-            "bank_account_hash": "bank_abc",
-            "student_name": "Birsa Munda",
-            "dob": "2002-05-12",
-            "father_name": "Sugana Munda",
-            "institute_id": "INST-001",
-        },
-        app2_data={
-            "aadhaar_hash": "hash_12345",
-            "bank_account_hash": "bank_abc",
-            "student_name": "Birsa Munda",
-            "dob": "2002-05-12",
-            "father_name": "Sugana Munda",
-            "institute_id": "INST-001",
-        },
+def test_name_similarity_exact():
+    sim = _name_similarity("Birsa Munda", "Birsa Munda")
+    assert sim == 1.0
+
+
+def test_name_similarity_partial():
+    sim = _name_similarity("Birsa Munda", "Birsa K. Munda")
+    assert sim > 0.7
+
+
+def test_compute_match_confidence_exact():
+    app1_data = {"date_of_birth": "2001-05-10", "mobile": "9876543210"}
+    app2_data = {"date_of_birth": "2001-05-10", "mobile": "9876543210"}
+    matching_fields = ["applicant_name", "date_of_birth", "mobile", "applicant_email"]
+
+    confidence, signals = _compute_match_confidence(
+        app1_data=app1_data,
+        app2_data=app2_data,
+        app1_name="Birsa Munda",
+        app2_name="Birsa Munda",
+        app1_email="birsa@example.com",
+        app2_email="birsa@example.com",
+        matching_fields=matching_fields,
     )
 
-    assert details["confidence_score"] >= 0.9
-    assert details["same_aadhaar"] is True
-    assert details["same_bank_account"] is True
-
-
-def test_calculate_identity_similarity_partial_match():
-    details = calculate_identity_similarity(
-        app1_data={
-            "aadhaar_hash": "hash_99999",
-            "bank_account_hash": "bank_xyz",
-            "student_name": "Rani Durgavati",
-            "dob": "2001-11-20",
-            "father_name": "Dalpat Shah",
-            "institute_id": "INST-002",
-        },
-        app2_data={
-            "aadhaar_hash": "hash_88888",
-            "bank_account_hash": "bank_xyz",  # Same bank account
-            "student_name": "Rani Durgavati",
-            "dob": "2001-11-20",
-            "father_name": "Dalpat Shah",
-            "institute_id": "INST-002",
-        },
-    )
-
-    assert details["confidence_score"] > 0.5
-    assert details["same_bank_account"] is True
-    assert details["same_aadhaar"] is False
-
-
-def test_calculate_identity_similarity_no_match():
-    details = calculate_identity_similarity(
-        app1_data={
-            "aadhaar_hash": "hash_111",
-            "bank_account_hash": "bank_111",
-            "student_name": "Person One",
-            "dob": "2000-01-01",
-            "father_name": "Father One",
-            "institute_id": "INST-001",
-        },
-        app2_data={
-            "aadhaar_hash": "hash_222",
-            "bank_account_hash": "bank_222",
-            "student_name": "Person Two",
-            "dob": "1999-12-31",
-            "father_name": "Father Two",
-            "institute_id": "INST-002",
-        },
-    )
-
-    assert details["confidence_score"] < 0.3
-    assert details["same_aadhaar"] is False
-    assert details["same_bank_account"] is False
+    assert confidence >= 0.8
+    assert signals.get("email_match") is True

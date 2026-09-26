@@ -206,22 +206,30 @@ export default function PolicySimulationPage() {
                   <div className="text-[10px] text-gray-400">Beneficiaries</div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                  <div className="text-[10px] uppercase font-bold text-gray-400">Net Eligibility Delta</div>
-                  <div className={`text-lg font-extrabold mt-0.5 flex items-center gap-1 ${result.eligible_count_delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {result.eligible_count_delta >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                    {result.eligible_count_delta > 0 ? `+${result.eligible_count_delta}` : result.eligible_count_delta}
-                  </div>
-                  <div className="text-[10px] text-gray-400">Net Shift</div>
-                </div>
+                {(() => {
+                  const eligibleDelta = result.eligible_count_delta ?? 0;
+                  const budgetDelta = result.net_budget_delta ?? 0;
+                  return (
+                    <>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <div className="text-[10px] uppercase font-bold text-gray-400">Net Eligibility Delta</div>
+                        <div className={`text-lg font-extrabold mt-0.5 flex items-center gap-1 ${eligibleDelta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                          {eligibleDelta >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                          {eligibleDelta > 0 ? `+${eligibleDelta}` : eligibleDelta}
+                        </div>
+                        <div className="text-[10px] text-gray-400">Net Shift</div>
+                      </div>
 
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                  <div className="text-[10px] uppercase font-bold text-gray-400">Net Financial Delta</div>
-                  <div className={`text-lg font-extrabold mt-0.5 ${result.net_budget_delta >= 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                    ₹{Math.abs(result.net_budget_delta).toLocaleString()}
-                  </div>
-                  <div className="text-[10px] text-gray-400">{result.net_budget_delta >= 0 ? "Additional Budget" : "Savings"}</div>
-                </div>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <div className="text-[10px] uppercase font-bold text-gray-400">Net Financial Delta</div>
+                        <div className={`text-lg font-extrabold mt-0.5 ${budgetDelta >= 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                          ₹{Math.abs(budgetDelta).toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-gray-400">{budgetDelta >= 0 ? "Additional Budget" : "Savings"}</div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Candidate Transitions Breakdown */}
