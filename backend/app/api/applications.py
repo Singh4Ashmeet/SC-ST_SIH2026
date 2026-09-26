@@ -36,31 +36,71 @@ router = APIRouter(prefix="/applications", tags=["Applications"])
 def list_applications(
     scheme_id: Optional[str] = Query(None, description="Filter by scheme ID"),
     current_state: Optional[str] = Query(None, description="Filter by current state"),
+    queue: Optional[str] = Query(None, description="Filter by operational work queue: scrutiny, institute, selection, nodal, all"),
+    search: Optional[str] = Query(None, description="Search applicant name, email, or ID"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=200, description="Items per page"),
     current_user: Annotated[User, Depends(require_any_role)] = None,
     db: Session = Depends(get_db),
 ) -> List[Application]:
     """
-    List all applications with optional filtering and pagination.
-
-    Any authenticated role can access.
+    List applications scoped to the authenticated user's role and operational permissions.
+    Supports role-scoped queues (scrutiny, institute, selection, nodal).
     """
-    cache_key = f"apps:list:{scheme_id}:{current_state}:{page}:{page_size}"
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
     query = db.query(Application)
 
+    # 1. Apply role-based scope filtering
+    if current_user.role == UserRole.SCRUTINY_OFFICER:
+        if current_user.state_scope:
+            query = query.filter((Application.state == current_user.state_scope) | (Application.state.is_(None)))
+        # Scrutiny queue filtering
+        if queue == "scrutiny" or not queue:
+            scrutiny_states = ["submitted", "document_scrutiny", "deficiency_flagged", "resubmitted", "under_scrutiny"]
+            query = query.filter(Application.current_state.in_(scrutiny_states))
+
+    elif current_user.role == UserRole.INSTITUTE_VERIFIER:
+        if current_user.institution_id:
+            query = query.filter(
+                (Application.institution_id == current_user.institution_id) |
+                (Application.applicant_data["institution_id"].astext == current_user.institution_id) |
+                (Application.applicant_data["institution"].astext.ilike(f"%{current_user.institution_id}%"))
+            )
+        if queue == "institute" or not queue:
+            query = query.filter(Application.current_state.in_(["institute_verification", "pending_institute_verification"]))
+
+    elif current_user.role == UserRole.SELECTION_COMMITTEE:
+        if queue == "selection" or not queue:
+            selection_states = ["merit_evaluated", "selection", "committee_review", "approved", "rejected", "held", "selected", "awarded"]
+            query = query.filter(Application.current_state.in_(selection_states))
+
+    elif current_user.role == UserRole.NODAL_OFFICER:
+        if current_user.state_scope:
+            query = query.filter(Application.state == current_user.state_scope)
+
+    elif current_user.role == UserRole.APPLICANT:
+        query = query.filter(Application.applicant_email.ilike(current_user.email))
+
+    # 2. Apply explicit query filters
     if scheme_id:
         query = query.filter(Application.scheme_id == scheme_id)
     if current_state:
         query = query.filter(Application.current_state == current_state)
+    if queue and queue != "all":
+        if queue == "scrutiny":
+            query = query.filter(Application.current_state.in_(["submitted", "document_scrutiny", "deficiency_flagged", "resubmitted"]))
+        elif queue == "institute":
+            query = query.filter(Application.current_state.in_(["institute_verification", "pending_institute_verification"]))
+        elif queue == "selection":
+            query = query.filter(Application.current_state.in_(["merit_evaluated", "selection", "committee_review"]))
+    if search:
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            (Application.applicant_name.ilike(search_pattern)) |
+            (Application.applicant_email.ilike(search_pattern))
+        )
 
     offset = (page - 1) * page_size
     applications = list(query.order_by(Application.created_at.desc()).offset(offset).limit(page_size).all())
-    cache.set(cache_key, applications, ttl=10)
     return applications
 
 
@@ -472,6 +512,60 @@ def get_case_file(
         for t in transitions
     ]
 
+    # 9. Dynamic SLA Calculation
+    from datetime import datetime, timezone, timedelta
+    entry_time = application.stage_entry_time or application.updated_at or application.created_at
+    if entry_time and entry_time.tzinfo is None:
+        entry_time = entry_time.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    
+    sla_hours_map = {
+        "submitted": 24,
+        "eligibility_check": 24,
+        "document_scrutiny": 48,
+        "deficiency_flagged": 72,
+        "resubmitted": 24,
+        "scrutiny_completed": 24,
+        "institute_verification": 72,
+        "merit_evaluated": 48,
+        "selection": 96,
+        "committee_review": 96,
+        "approved": 120,
+        "disbursed": 120,
+    }
+    stage_sla_hours = sla_hours_map.get(application.current_state.lower(), 48)
+    deadline = entry_time + timedelta(hours=stage_sla_hours) if entry_time else now + timedelta(hours=48)
+    diff = deadline - now
+    total_seconds = int(diff.total_seconds())
+    is_breached = total_seconds < 0
+    abs_seconds = abs(total_seconds)
+    hours = abs_seconds // 3600
+    minutes = (abs_seconds % 3600) // 60
+    
+    formatted_sla = f"SLA BREACHED ({hours}h {minutes}m overdue)" if is_breached else f"{hours}h {minutes}m remaining"
+
+    sla_data = {
+        "stage_entry_time": entry_time.isoformat() if entry_time else None,
+        "deadline": deadline.isoformat(),
+        "sla_hours": stage_sla_hours,
+        "is_breached": is_breached,
+        "remaining_hours": hours if not is_breached else -hours,
+        "remaining_minutes": minutes,
+        "formatted_status": formatted_sla,
+    }
+
+    # 10. Case Decision Summary
+    case_decision_summary = {
+        "eligibility_status": "PASS" if (eligibility_result and eligibility_result.get("passed")) else ("FAIL" if eligibility_result else "PENDING"),
+        "documents_status": "DEFICIENT" if any(d.get("status") in ["DEFICIENT", "REJECTED"] for d in doc_list) else ("VERIFIED" if doc_list and all(d.get("status") == "VERIFIED" for d in doc_list) else "SCRUTINY_REQUIRED"),
+        "conflict_status": conflict_data.get("status") if conflict_data else "CLEAR",
+        "merit_score": merit_data.get("total_score") if merit_data else None,
+        "institute_status": inst_data.get("status") if inst_data else "PENDING",
+        "current_responsible_role": application.current_responsible_role or "SCRUTINY_OFFICER",
+        "viewing_as_role": user_role,
+        "next_recommended_action": "Review documents & run scrutiny" if application.current_state == "submitted" else f"Advance workflow stage from {application.current_state}",
+    }
+
     return {
         "application": ApplicationRead.model_validate(application),
         "scheme": {
@@ -491,4 +585,6 @@ def get_case_file(
         "audit_logs": audit_list,
         "available_transitions": available_transitions,
         "current_user_role": user_role,
+        "sla": sla_data,
+        "case_decision_summary": case_decision_summary,
     }

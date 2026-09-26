@@ -4,7 +4,8 @@ Application model representing a candidate's scheme submission.
 
 import uuid
 from typing import TYPE_CHECKING, List, Optional
-from sqlalchemy import ForeignKey, String
+from datetime import datetime
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from app.models.audit_log import AuditLog
     from app.models.disbursement import Disbursement
     from app.models.renewal import Renewal
+    from app.models.user import User
 
 
 class Application(Base, BaseModelMixin):
@@ -53,6 +55,45 @@ class Application(Base, BaseModelMixin):
         nullable=False,
         default="submitted",
         server_default="submitted",
+    )
+
+    # Scoping & Assignment
+    assigned_scrutiny_officer_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    institution_id: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
+    state: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    district: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    current_responsible_role: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        default="SCRUTINY_OFFICER",
+        server_default="SCRUTINY_OFFICER",
+    )
+    current_responsible_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    stage_entry_time: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=True,
     )
 
     # Relationships

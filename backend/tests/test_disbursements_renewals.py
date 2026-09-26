@@ -33,125 +33,18 @@ from app.models.renewal import RenewalStatus
 from app.models.user import UserRole
 
 
-# Test-specific SQLite models
-class TestBase(DeclarativeBase):
-    __test__ = False
-
-
-class TestUUIDMixin:
-    __test__ = False
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-
-
-class TestTimestampMixin:
-    __test__ = False
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
-
-class TestBaseModelMixin(TestUUIDMixin, TestTimestampMixin):
-    __test__ = False
-
-
-class TestUser(TestBase, TestBaseModelMixin):
-    __test__ = False
-    __tablename__ = "users"
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(50), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
-
-    @property
-    def value(self) -> str:
-        return self.role
-
-
-class TestScheme(TestBase, TestBaseModelMixin):
-    __test__ = False
-    __tablename__ = "schemes"
-    code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
-
-
-class TestApplication(TestBase, TestBaseModelMixin):
-    __test__ = False
-    __tablename__ = "applications"
-    scheme_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("schemes.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    applicant_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    applicant_email: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
-    applicant_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    applicant_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    current_state: Mapped[str] = mapped_column(String(50), index=True, nullable=False, default="submitted")
-
-
-class TestAuditLog(TestBase, TestUUIDMixin):
-    __test__ = False
-    __tablename__ = "audit_logs"
-    application_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    scheme_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("schemes.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    actor_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True, index=True)
-    action: Mapped[str] = mapped_column(String(100), nullable=False)
-    from_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    to_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    details: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True, nullable=False)
-
-
-class TestDisbursement(TestBase, TestBaseModelMixin):
-    __test__ = False
-    __tablename__ = "disbursements"
-    application_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    disbursed_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="PENDING", server_default="PENDING", nullable=False)
-    installment_number: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
-    remarks: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-
-
-class TestRenewal(TestBase, TestBaseModelMixin):
-    __test__ = False
-    __tablename__ = "renewals"
-    application_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    academic_year_or_cycle: Mapped[str] = mapped_column(String(20), nullable=False)
-    status: Mapped[str] = mapped_column(String(30), default="PENDING_REVIEW", server_default="PENDING_REVIEW", nullable=False)
-    due_date: Mapped[date] = mapped_column(Date, nullable=False)
-    reviewed_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    reviewer_id: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    remarks: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-
-
-TEST_DB_URL = "sqlite:///./test_disbursements_renewals.db"
-engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from tests.conftest import (
+    TestBase,
+    TestUser,
+    TestScheme,
+    TestApplication,
+    TestDocument,
+    TestAuditLog,
+    TestDisbursement,
+    TestRenewal,
+    engine,
+    TestingSessionLocal,
+)
 
 
 def load_fixture(filename: str) -> Dict[str, Any]:

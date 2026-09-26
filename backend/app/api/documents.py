@@ -316,15 +316,10 @@ def get_document_file(
         pass
 
     if not file_bytes:
-        # Fallback to local sample certificate if minio or storage key fails
-        import os
-        from pathlib import Path
-        sample_path = Path("sample_clean_income_certificate.pdf")
-        if sample_path.exists():
-            file_bytes = sample_path.read_bytes()
-        else:
-            # Minimal PDF binary fallback
-            file_bytes = b"%PDF-1.4 %...\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj 2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj 3 0 obj << /Type /Page /Parent 2 0 R /Resources <<>> /MediaBox [0 0 612 792] >> endobj xref 0 4 0000000000 65535 f 0000000009 00000 n 0000000058 00000 n 0000000115 00000 n trailer << /Size 4 /Root 1 0 R >> startxref 206 %%EOF"
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document preview unavailable.",
+        )
 
     media_type = document.content_type or "application/pdf"
     if "pdf" in document.storage_key.lower():

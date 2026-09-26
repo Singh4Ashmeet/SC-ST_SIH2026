@@ -20,128 +20,17 @@ from app.core.security import create_access_token, hash_password
 from app.models.user import UserRole
 
 
-# Test-specific models using SQLite-compatible types (JSON instead of JSONB)
-class TestBase(DeclarativeBase):
-    pass
+from tests.conftest import (
+    TestBase,
+    TestUser,
+    TestScheme,
+    TestApplication,
+    TestDocument,
+    TestAuditLog,
+    engine,
+    TestingSessionLocal,
+)
 
-
-class TestUUIDMixin:
-    id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-    )
-
-
-class TestTimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
-    )
-
-
-class TestBaseModelMixin(TestUUIDMixin, TestTimestampMixin):
-    pass
-
-
-if TYPE_CHECKING:
-    from app.models.user import User
-
-
-class TestUser(TestBase, TestBaseModelMixin):
-    __tablename__ = "users"
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
-    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[UserRole] = mapped_column(
-        String(50), nullable=False
-    )
-    is_active: Mapped[bool] = mapped_column(default=True, server_default="true", nullable=False)
-
-    @property
-    def value(self) -> str:
-        """Return role value for compatibility with code expecting UserRole enum."""
-        return self.role
-
-    @property
-    def role_enum(self) -> UserRole:
-        """Return role as UserRole enum for compatibility."""
-        return UserRole(self.role)
-
-
-class TestScheme(TestBase, TestBaseModelMixin):
-    __tablename__ = "schemes"
-    code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    config: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
-    created_by: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True)
-
-
-class TestApplication(TestBase, TestBaseModelMixin):
-    __tablename__ = "applications"
-    scheme_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("schemes.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    applicant_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    applicant_email: Mapped[str] = mapped_column(String(255), index=True, nullable=False)
-    applicant_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    applicant_data: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    current_state: Mapped[str] = mapped_column(String(50), index=True, nullable=False, default="submitted")
-
-    scheme: Mapped["TestScheme"] = relationship("TestScheme", back_populates="applications")
-    audit_logs: Mapped[List["TestAuditLog"]] = relationship("TestAuditLog", back_populates="application", cascade="all, delete-orphan")
-
-
-TestScheme.applications = relationship("TestApplication", back_populates="scheme", cascade="all, delete-orphan")
-
-
-class TestDocument(TestBase, TestBaseModelMixin):
-    __tablename__ = "documents"
-    application_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    doc_type: Mapped[str] = mapped_column(String(100), nullable=False)
-    storage_key: Mapped[str] = mapped_column(String(500), nullable=False)
-    content_type: Mapped[str] = mapped_column(String(100), nullable=True, default="application/octet-stream")
-    status: Mapped[str] = mapped_column(String(20), default="PENDING", server_default="PENDING", nullable=False)
-    extracted_fields: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    deficiency_reasons: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
-class TestAuditLog(TestBase, TestUUIDMixin):
-    __tablename__ = "audit_logs"
-    application_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=True, index=True
-    )
-    scheme_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("schemes.id", ondelete="SET NULL"), nullable=True, index=True
-    )
-    actor_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(PG_UUID(as_uuid=True), nullable=True, index=True)
-    action: Mapped[str] = mapped_column(String(100), nullable=False)
-    from_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    to_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    details: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True, nullable=False)
-
-    application: Mapped[Optional["TestApplication"]] = relationship("TestApplication", back_populates="audit_logs")
-    scheme: Mapped[Optional["TestScheme"]] = relationship("TestScheme")
-
-
-# Test database setup
-TEST_DB_URL = "sqlite:///./test_auth.db"
-engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def load_fixture(filename: str) -> dict:

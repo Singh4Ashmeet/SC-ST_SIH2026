@@ -61,6 +61,14 @@ class AuditLog(Base, UUIDMixin):
         index=True,
         nullable=False,
     )
+    previous_hash: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    current_hash: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+    )
 
     # Relationships
     application: Mapped[Optional["Application"]] = relationship(

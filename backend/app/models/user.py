@@ -3,8 +3,9 @@ User model with role-based access control.
 """
 
 import enum
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import Boolean, Enum as SQLEnum, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseModelMixin
@@ -22,6 +23,7 @@ class UserRole(str, enum.Enum):
     SELECTION_COMMITTEE = "SELECTION_COMMITTEE"
     INSTITUTE_VERIFIER = "INSTITUTE_VERIFIER"
     NODAL_OFFICER = "NODAL_OFFICER"
+    APPLICANT = "APPLICANT"
 
 
 class User(Base, BaseModelMixin):
@@ -51,6 +53,33 @@ class User(Base, BaseModelMixin):
         default=True,
         server_default="true",
         nullable=False,
+    )
+
+    # Operational Scopes
+    institution_id: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        index=True,
+    )
+    state_scope: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    district_scope: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    assigned_scheme_ids: Mapped[Optional[dict]] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    department_scope: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    active_assignment: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
     )
 
     # Relationships

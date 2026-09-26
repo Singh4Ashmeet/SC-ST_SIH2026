@@ -232,6 +232,60 @@ export default function ApplicationCaseFilePage() {
         </div>
       )}
 
+      {/* ── CASE DECISION SUMMARY BANNER ── */}
+      {caseFile.case_decision_summary && (
+        <div className="bg-white border-2 border-stone-900 rounded-xl p-4 shadow-sm space-y-3">
+          <div className="flex items-center justify-between border-b border-stone-200 pb-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#de5c36]" />
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-stone-900">Case Decision Summary</h2>
+            </div>
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="text-stone-500">Viewing as: <strong className="text-stone-900">{user?.role?.replace(/_/g, " ")}</strong></span>
+              <span className="text-stone-300">•</span>
+              <span className="text-stone-500">Responsible Role: <strong className="text-[#de5c36]">{caseFile.case_decision_summary.current_responsible_role}</strong></span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+            <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+              <span className="text-[10px] font-bold text-stone-500 uppercase block">Eligibility</span>
+              <span className={`font-bold ${caseFile.case_decision_summary.eligibility_status === "PASS" ? "text-emerald-700" : "text-rose-700"}`}>
+                {caseFile.case_decision_summary.eligibility_status === "PASS" ? "✓ PASS" : "⚠ FAIL"}
+              </span>
+            </div>
+
+            <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+              <span className="text-[10px] font-bold text-stone-500 uppercase block">Documents</span>
+              <span className={`font-bold ${caseFile.case_decision_summary.documents_status === "VERIFIED" ? "text-emerald-700" : "text-amber-700"}`}>
+                {caseFile.case_decision_summary.documents_status}
+              </span>
+            </div>
+
+            <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+              <span className="text-[10px] font-bold text-stone-500 uppercase block">Cross-Scheme Conflict</span>
+              <span className={`font-bold ${caseFile.case_decision_summary.conflict_status === "CLEAR" ? "text-emerald-700" : "text-amber-700"}`}>
+                {caseFile.case_decision_summary.conflict_status === "CLEAR" ? "✓ CLEAR" : "⚠ CONFLICT"}
+              </span>
+            </div>
+
+            <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+              <span className="text-[10px] font-bold text-stone-500 uppercase block">Merit Score</span>
+              <span className="font-bold text-purple-700">
+                {caseFile.case_decision_summary.merit_score ? `${caseFile.case_decision_summary.merit_score} / 100` : "Evaluated"}
+              </span>
+            </div>
+
+            <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+              <span className="text-[10px] font-bold text-stone-500 uppercase block">Institute Status</span>
+              <span className="font-bold text-stone-800">
+                {caseFile.case_decision_summary.institute_status}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── CASE FILE HEADER ── */}
       <div className="bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 rounded-xl p-6 text-white shadow-xl border border-stone-700 relative overflow-hidden">
         <div className="relative z-10 space-y-4">
@@ -252,10 +306,10 @@ export default function ApplicationCaseFilePage() {
 
             <div className="bg-stone-800/90 border border-stone-700 p-3 rounded-lg text-right space-y-1">
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Current Responsible Role</div>
-              <div className="text-xs font-bold text-white uppercase">{user?.role?.replace(/_/g, " ") || "Officer"}</div>
-              <div className="flex items-center justify-end gap-1.5 text-[11px] text-amber-300 font-mono pt-0.5">
+              <div className="text-xs font-bold text-white uppercase">{application.current_responsible_role || user?.role?.replace(/_/g, " ") || "Officer"}</div>
+              <div className={`flex items-center justify-end gap-1.5 text-[11px] font-mono pt-0.5 ${caseFile.sla?.is_breached ? "text-rose-400 font-bold animate-pulse" : "text-amber-300"}`}>
                 <Clock className="w-3 h-3" />
-                <span>SLA: 18h 42m remaining</span>
+                <span>SLA: {caseFile.sla?.formatted_status || "18h 42m remaining"}</span>
               </div>
             </div>
           </div>

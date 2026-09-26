@@ -16,6 +16,13 @@ class ApplicationBase(BaseModel):
     applicant_phone: Optional[str] = None
     applicant_data: Dict[str, Any] = Field(default_factory=dict)
     current_state: str = "submitted"
+    assigned_scrutiny_officer_id: Optional[uuid.UUID] = None
+    institution_id: Optional[str] = None
+    state: Optional[str] = None
+    district: Optional[str] = None
+    current_responsible_role: Optional[str] = "SCRUTINY_OFFICER"
+    current_responsible_user_id: Optional[uuid.UUID] = None
+    stage_entry_time: Optional[datetime] = None
 
 
 class ApplicationCreate(ApplicationBase):

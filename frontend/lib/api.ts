@@ -234,6 +234,13 @@ export interface ApplicationRead {
   applicant_phone?: string | null;
   applicant_data: Record<string, unknown>;
   current_state: string;
+  assigned_scrutiny_officer_id?: string | null;
+  institution_id?: string | null;
+  state?: string | null;
+  district?: string | null;
+  current_responsible_role?: string | null;
+  current_responsible_user_id?: string | null;
+  stage_entry_time?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -722,6 +729,25 @@ export interface CaseFileData {
     label: string;
   }>;
   current_user_role: string;
+  sla?: {
+    stage_entry_time: string | null;
+    deadline: string;
+    sla_hours: number;
+    is_breached: boolean;
+    remaining_hours: number;
+    remaining_minutes: number;
+    formatted_status: string;
+  };
+  case_decision_summary?: {
+    eligibility_status: string;
+    documents_status: string;
+    conflict_status: string;
+    merit_score?: number | null;
+    institute_status: string;
+    current_responsible_role: string;
+    viewing_as_role: string;
+    next_recommended_action: string;
+  };
 }
 
 export async function getCaseFile(applicationId: string): Promise<CaseFileData> {
