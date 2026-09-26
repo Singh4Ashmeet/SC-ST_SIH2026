@@ -1,6 +1,6 @@
 # 🎓 Scholarship Admin Platform
 
-> **SIH Problem Statement SIH26238**: Modernizing scholarship and fellowship administration for the Ministry of Social Justice & Empowerment (MoSJE) through a unified, config-driven lifecycle management platform.
+> **SIH Problem Statement SIH26239**: Modernizing scholarship and fellowship administration for the Ministry of Social Justice & Empowerment (MoSJE) through a unified, config-driven lifecycle management platform.
 
 A full-stack, enterprise-grade admin platform and citizen portal designed to administer central scholarship and fellowship schemes — from dynamic intake and automated eligibility evaluation, through OCR-assisted document scrutiny and selection committee workflows, to post-selection disbursement tracking and annual renewal review cycles.
 
