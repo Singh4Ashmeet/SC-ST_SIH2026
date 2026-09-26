@@ -11,7 +11,8 @@ def test_scheme_config_validation_for_simulation():
         "scheme_id": "SCH-TEST-01",
         "name": "Test Scholarship",
         "version": 1,
-        "code": "TST-01",
+        "scheme_code": "TST-01",
+        "initial_state": "submitted",
         "description": "Test scheme description",
         "sponsor": "Ministry of Tribal Affairs",
         "funding_ratio": {"central": 100.0, "state": 0.0},
@@ -42,5 +43,5 @@ def test_scheme_config_validation_for_simulation():
     }
 
     validated_config = validate_scheme_config(raw_config)
-    assert validated_config.code == "TST-01"
+    assert validated_config.scheme_code == "TST-01"
     assert len(validated_config.eligibility_rules) == 1
