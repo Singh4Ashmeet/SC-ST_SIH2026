@@ -32,6 +32,72 @@ SUPPORTED_MIME_TYPES = {
 }
 
 
+def _infer_content_type(file_bytes: bytes, declared_type: str) -> str:
+    """
+    Infer actual content type from file magic bytes when the declared type
+    is missing or generic (e.g. application/octet-stream).
+    """
+    if declared_type in SUPPORTED_MIME_TYPES:
+        return declared_type
+    if not file_bytes:
+        return declared_type
+    # PDF magic: %PDF
+    if file_bytes[:5] == b"%PDF-":
+        return "application/pdf"
+    # JPEG: FF D8 FF
+    if file_bytes[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    # PNG: 89 50 4E 47
+    if file_bytes[:4] == b"\x89PNG":
+        return "image/png"
+    # TIFF: 49 49 2A 00 or 4D 4D 00 2A
+    if file_bytes[:4] in (b"II*\x00", b"MM\x00*"):
+        return "image/tiff"
+    # BMP: 42 4D
+    if file_bytes[:2] == b"BM":
+        return "image/bmp"
+    return declared_type
+
+
+def _fallback_extract_pdf_text(file_bytes: bytes) -> str:
+    """
+    Fallback PDF text extraction using pypdf (pure-Python, no C dependencies).
+    Used when pymupdf is unavailable.
+    """
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(file_bytes))
+        pages = []
+        for i, page in enumerate(reader.pages):
+            txt = page.extract_text()
+            if txt and txt.strip():
+                pages.append(f"--- Page {i + 1} ---\n{txt.strip()}")
+        if pages:
+            return "\n\n".join(pages)
+    except ImportError:
+        logger.debug("pypdf not available for fallback PDF extraction")
+    except Exception as e:
+        logger.debug(f"pypdf fallback extraction failed: {e}")
+
+    # Second fallback: PyPDF2 (older library name)
+    try:
+        from PyPDF2 import PdfReader as PdfReader2
+        reader = PdfReader2(io.BytesIO(file_bytes))
+        pages = []
+        for i, page in enumerate(reader.pages):
+            txt = page.extract_text()
+            if txt and txt.strip():
+                pages.append(f"--- Page {i + 1} ---\n{txt.strip()}")
+        if pages:
+            return "\n\n".join(pages)
+    except ImportError:
+        logger.debug("PyPDF2 not available for fallback PDF extraction")
+    except Exception as e:
+        logger.debug(f"PyPDF2 fallback extraction failed: {e}")
+
+    return ""
+
+
 def _calculate_text_quality_confidence(text: str) -> float:
     """
     Computes a realistic confidence score (0.0 to 1.0) from extracted text quality.
@@ -114,6 +180,8 @@ class RapidOCRDocumentProvider(DocumentIntelligenceProvider):
         }
 
     def extract_text(self, file_bytes: bytes, content_type: str) -> str:
+        # Infer actual content type from file magic bytes
+        content_type = _infer_content_type(file_bytes, content_type)
         if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
             return ""
 
@@ -139,13 +207,20 @@ class RapidOCRDocumentProvider(DocumentIntelligenceProvider):
                     extracted_pages.append(f"--- Page {i + 1} ---\n{txt.strip()}")
             if extracted_pages:
                 return "\n\n".join(extracted_pages)
+        except ImportError:
+            logger.info("pymupdf not installed, trying fallback PDF extractors")
         except Exception as e:
             logger.debug(f"Direct PyMuPDF stream extraction failed: {e}")
 
-        # 2. Scanned PDF: render pages with PyMuPDF and run RapidOCR in-memory
+        # 2. Fallback: pypdf / PyPDF2 for digital PDFs (pure Python, no C deps)
+        fallback_text = _fallback_extract_pdf_text(file_bytes)
+        if fallback_text and len(fallback_text.strip()) > 10:
+            return fallback_text
+
+        # 3. Scanned PDF: render pages with PyMuPDF and run RapidOCR in-memory
         ocr = self._get_ocr()
         if ocr is None:
-            return ""
+            return fallback_text  # Return whatever we got from fallback
 
         try:
             import cv2
@@ -166,10 +241,12 @@ class RapidOCRDocumentProvider(DocumentIntelligenceProvider):
                             all_text.append(f"--- Page {i + 1} ---\n{page_text}")
             if all_text:
                 return "\n\n".join(all_text)
+        except ImportError:
+            logger.debug("pymupdf/cv2/numpy not available for raster OCR")
         except Exception as e:
             logger.debug(f"PyMuPDF raster OCR failed: {e}")
 
-        return ""
+        return fallback_text  # Return whatever we got from fallback
 
     def _extract_image(self, file_bytes: bytes) -> str:
         ocr = self._get_ocr()
@@ -235,6 +312,8 @@ class TesseractDocumentProvider(DocumentIntelligenceProvider):
         }
 
     def extract_text(self, file_bytes: bytes, content_type: str) -> str:
+        # Infer actual content type from file magic bytes
+        content_type = _infer_content_type(file_bytes, content_type)
         if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
             return ""
 
@@ -321,6 +400,8 @@ class MockDocumentProvider(DocumentIntelligenceProvider):
         }
 
     def extract_text(self, file_bytes: bytes, content_type: str) -> str:
+        # Infer actual content type from file magic bytes
+        content_type = _infer_content_type(file_bytes, content_type)
         if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
             return ""
         # Try PyMuPDF for PDF files safely
@@ -337,7 +418,12 @@ class MockDocumentProvider(DocumentIntelligenceProvider):
                     return "\n".join(lines)
             except Exception:
                 pass
-        return "Government Certificate Official Verification Record [SANDBOX]"
+            # Fallback to pypdf/PyPDF2
+            fallback_text = _fallback_extract_pdf_text(file_bytes)
+            if fallback_text:
+                return fallback_text
+        # Return empty string — never return fake/hardcoded text
+        return ""
 
     def extract_structured(self, file_bytes: bytes, content_type: str) -> Dict[str, Any]:
         text = self.extract_text(file_bytes, content_type)
@@ -421,18 +507,22 @@ def get_ocr_provider() -> DocumentIntelligenceProvider:
 # Public module functions for backward compatibility
 def extract_text(file_bytes: bytes, content_type: str) -> str:
     """Extract text using active document intelligence provider."""
+    # Infer actual content type from file magic bytes
+    content_type = _infer_content_type(file_bytes, content_type)
     if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
         return ""
     provider = get_document_intelligence_provider()
     res = provider.extract_text(file_bytes, content_type)
-    if not res:
-        fallback = MockDocumentProvider()
-        res = fallback.extract_text(file_bytes, content_type)
-    return res
+    if not res and content_type == "application/pdf":
+        # Last-resort fallback: try pure-Python PDF extraction directly
+        res = _fallback_extract_pdf_text(file_bytes)
+    return res or ""
 
 
 def extract_structured_ocr(file_bytes: bytes, content_type: str) -> Dict[str, Any]:
     """Extract structured document intelligence payload including confidence and provenance."""
+    # Infer actual content type from file magic bytes
+    content_type = _infer_content_type(file_bytes, content_type)
     if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
         return {
             "provider": "none",
