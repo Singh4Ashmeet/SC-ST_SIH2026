@@ -61,6 +61,11 @@ def _validate_file_extension(filename: str, accepted_formats: List[str]) -> bool
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
 )
+@router.post(
+    "/{application_id}/scrutiny",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+)
 def run_document_scrutiny(
     application_id: uuid.UUID,
     current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
@@ -103,6 +108,45 @@ def run_document_scrutiny(
         )
 
     engine = WorkflowEngine(db)
+
+    # If the application is in 'submitted' state, auto-advance it through eligibility evaluation to enter scrutiny
+    if application.current_state == "submitted":
+        try:
+            config = engine._get_scheme_config(application.scheme)
+            for t in config.workflow_transitions:
+                if t.from_state == "submitted" and t.trigger in ["auto_evaluate", "evaluate"]:
+                    application = engine.apply_transition(
+                        application=application,
+                        trigger=t.trigger,
+                        actor_user_id=current_user.id if current_user else None,
+                        details={"source": "scrutiny_entry"}
+                    )
+                    break
+        except Exception as e:
+            logger.warning(f"Auto-transition from submitted failed: {e}")
+
+    # If the application is in 'eligibility_check' state, run auto evaluation to advance to scrutiny
+    if application.current_state == "eligibility_check":
+        try:
+            application, _ = engine.run_auto_evaluation(application)
+        except Exception as e:
+            logger.warning(f"Eligibility evaluation transition failed: {e}")
+
+    # If the application is in 'resubmitted' state, advance to document_scrutiny
+    if application.current_state == "resubmitted":
+        try:
+            config = engine._get_scheme_config(application.scheme)
+            for t in config.workflow_transitions:
+                if t.from_state == "resubmitted" and t.trigger in ["scrutinize_resubmission", "scrutinize"]:
+                    application = engine.apply_transition(
+                        application=application,
+                        trigger=t.trigger,
+                        actor_user_id=current_user.id if current_user else None,
+                        details={"source": "re_scrutiny_entry"}
+                    )
+                    break
+        except Exception as e:
+            logger.warning(f"Resubmission transition failed: {e}")
 
     try:
         updated_application = engine.run_document_scrutiny(application)
@@ -318,8 +362,8 @@ async def resubmit_document(
     db.commit()
     db.refresh(document)
 
-    # Re-process the document (OCR + extraction + deficiency check)
-    process_document(db, document.id)
+    # Re-process the document (pass in-memory file_bytes to eliminate download latency)
+    process_document(db, document.id, file_bytes=file_bytes)
     db.refresh(document)
 
     # Check if application is in 'deficient' state and all docs are now VERIFIED
@@ -361,3 +405,138 @@ async def resubmit_document(
         "application_state": application.current_state,
         "auto_transitioned": auto_transitioned,
     }
+
+
+from pydantic import BaseModel
+
+class ScrutinyDecisionRequest(BaseModel):
+    decision: str  # "APPROVE" | "DEFICIENT" | "REJECT"
+    remarks: Optional[str] = None
+
+
+@router.post(
+    "/{application_id}/scrutiny-decision",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+)
+def record_scrutiny_decision(
+    application_id: uuid.UUID,
+    decision_req: ScrutinyDecisionRequest,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Execute Scrutiny Officer official decision:
+    - APPROVE: verifies scrutiny requirements and advances case to Selection stage
+    - DEFICIENT: issues formal deficiency notice to applicant for document resubmission
+    - REJECT: formally rejects application with officer remarks and permanent audit trail
+    """
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Application with id '{application_id}' not found",
+        )
+
+    engine = WorkflowEngine(db)
+    decision = decision_req.decision.upper()
+    remarks = decision_req.remarks or f"Scrutiny decision: {decision}"
+    actor_id = current_user.id if current_user else None
+
+    from app.services.audit_service import create_audit_log
+
+    if decision == "APPROVE":
+        trigger = "documents_verified"
+        try:
+            updated_app = engine.apply_transition(
+                application=application,
+                trigger=trigger,
+                actor_user_id=actor_id,
+                details={"remarks": remarks, "officer_role": "SCRUTINY_OFFICER"}
+            )
+        except InvalidTransitionError:
+            # Fallback direct state transition if config trigger differs
+            old_state = application.current_state
+            application.current_state = "selection"
+            create_audit_log(
+                db=db,
+                application_id=application.id,
+                scheme_id=application.scheme_id,
+                actor_user_id=actor_id,
+                action="scrutiny_approved",
+                from_state=old_state,
+                to_state="selection",
+                details={"remarks": remarks}
+            )
+            db.commit()
+            db.refresh(application)
+            updated_app = application
+
+        return {
+            "success": True,
+            "message": "Scrutiny approved. Application advanced to Selection Committee.",
+            "application": ApplicationRead.model_validate(updated_app),
+            "decision": "APPROVE"
+        }
+
+    elif decision == "DEFICIENT":
+        trigger = "documents_flagged_deficient"
+        try:
+            updated_app = engine.apply_transition(
+                application=application,
+                trigger=trigger,
+                actor_user_id=actor_id,
+                details={"remarks": remarks, "officer_role": "SCRUTINY_OFFICER"}
+            )
+        except InvalidTransitionError:
+            old_state = application.current_state
+            application.current_state = "deficient"
+            create_audit_log(
+                db=db,
+                application_id=application.id,
+                scheme_id=application.scheme_id,
+                actor_user_id=actor_id,
+                action="scrutiny_deficiency_flagged",
+                from_state=old_state,
+                to_state="deficient",
+                details={"remarks": remarks}
+            )
+            db.commit()
+            db.refresh(application)
+            updated_app = application
+
+        return {
+            "success": True,
+            "message": "Deficiency notice issued. Applicant requested to resubmit documents.",
+            "application": ApplicationRead.model_validate(updated_app),
+            "decision": "DEFICIENT"
+        }
+
+    elif decision == "REJECT":
+        old_state = application.current_state
+        application.current_state = "rejected"
+        create_audit_log(
+            db=db,
+            application_id=application.id,
+            scheme_id=application.scheme_id,
+            actor_user_id=actor_id,
+            action="scrutiny_rejected",
+            from_state=old_state,
+            to_state="rejected",
+            details={"remarks": remarks}
+        )
+        db.commit()
+        db.refresh(application)
+
+        return {
+            "success": True,
+            "message": "Application rejected at document scrutiny stage.",
+            "application": ApplicationRead.model_validate(application),
+            "decision": "REJECT"
+        }
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown decision '{decision}'. Allowed: APPROVE, DEFICIENT, REJECT"
+        )

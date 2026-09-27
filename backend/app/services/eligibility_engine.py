@@ -114,23 +114,50 @@ def _has_missing_vars(condition: dict, data: dict) -> List[str]:
     return missing
 
 
-def evaluate_eligibility(scheme_config: SchemeConfig, applicant_data: dict) -> EligibilityResult:
+def evaluate_eligibility(scheme_config: Any, applicant_data: dict) -> EligibilityResult:
     """
     Evaluate all eligibility rules against applicant data.
 
     Args:
-        scheme_config: The scheme configuration containing eligibility_rules
+        scheme_config: The scheme configuration containing eligibility_rules (SchemeConfig or dict)
         applicant_data: Dictionary of applicant data to evaluate against
 
     Returns:
         EligibilityResult with passed=True if all rules pass,
         or passed=False with all failed rules collected (no short-circuiting)
     """
+    if isinstance(scheme_config, dict):
+        from app.services.scheme_config_validator import validate_scheme_config
+        scheme_config = validate_scheme_config(scheme_config)
+
     failed_rules: List[FailedRule] = []
+
+    # Prepare normalized applicant data for evaluation (support numeric strings and case variations)
+    eval_data = dict(applicant_data or {})
+    for k, v in list(eval_data.items()):
+        if isinstance(v, str):
+            # Try numeric coercion for comparison operators
+            try:
+                if "." in v:
+                    eval_data[k] = float(v)
+                else:
+                    eval_data[k] = int(v)
+            except (ValueError, TypeError):
+                pass
+
+    # Provide common alias mappings for unified evaluation across legacy and new forms
+    if "percentage" not in eval_data and "qualifying_marks" in eval_data:
+        eval_data["percentage"] = eval_data["qualifying_marks"]
+    if "qualifying_marks" not in eval_data and "percentage" in eval_data:
+        eval_data["qualifying_marks"] = eval_data["percentage"]
+    if "annual_income" not in eval_data and "income" in eval_data:
+        eval_data["annual_income"] = eval_data["income"]
+    if "income" not in eval_data and "annual_income" in eval_data:
+        eval_data["income"] = eval_data["annual_income"]
 
     for rule in scheme_config.eligibility_rules:
         # Check for missing required fields before attempting evaluation
-        missing_vars = _has_missing_vars(rule.condition, applicant_data)
+        missing_vars = _has_missing_vars(rule.condition, eval_data)
         if missing_vars:
             for missing_var in missing_vars:
                 failed_rules.append(FailedRule(
@@ -142,7 +169,10 @@ def evaluate_eligibility(scheme_config: SchemeConfig, applicant_data: dict) -> E
 
         # Evaluate the rule condition using json-logic
         try:
-            result = jsonLogic(rule.condition, applicant_data)
+            result = jsonLogic(rule.condition, eval_data)
+            # If false, also try raw applicant_data in case string comparison was intended
+            if not result and eval_data != applicant_data:
+                result = jsonLogic(rule.condition, applicant_data)
         except Exception as exc:
             # If evaluation fails for any reason, treat as failure
             failed_rules.append(FailedRule(

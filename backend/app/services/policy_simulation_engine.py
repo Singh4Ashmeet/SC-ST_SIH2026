@@ -82,9 +82,24 @@ def simulate_policy_change(
 
     current_config = SchemeConfig(**scheme.config)
 
+    # Safely merge proposed config on top of existing scheme config to guarantee all required schema keys
+    merged_proposed = dict(scheme.config)
+    merged_proposed.update(proposed_config_dict)
+    if "eligibility_rules" in proposed_config_dict:
+        normalized_rules = []
+        for r in proposed_config_dict["eligibility_rules"]:
+            if isinstance(r, dict):
+                r_copy = dict(r)
+                if not r_copy.get("failure_message"):
+                    r_copy["failure_message"] = f"Criteria for {r_copy.get('field', 'eligibility')} not satisfied"
+                normalized_rules.append(r_copy)
+            else:
+                normalized_rules.append(r)
+        merged_proposed["eligibility_rules"] = normalized_rules
+
     # Validate proposed config
     try:
-        proposed_config = validate_scheme_config(proposed_config_dict)
+        proposed_config = validate_scheme_config(merged_proposed)
     except SchemeConfigValidationError as e:
         return {
             "valid": False,

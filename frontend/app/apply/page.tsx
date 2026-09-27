@@ -25,8 +25,13 @@ export default function ApplyPage() {
     <div className="space-y-8 max-w-4xl mx-auto">
       {/* Hero */}
       <div className="text-center space-y-3">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#de5c36]/10 rounded-full text-[11px] font-medium text-[#de5c36]">
-          <Award className="w-3 h-3" /> Ministry of Tribal Affairs
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-stone-200 rounded-full text-xs font-semibold text-stone-800 shadow-sm">
+          <img
+            src="/ashoka-emblem.png"
+            alt="State Emblem of India"
+            className="h-5 w-auto object-contain"
+          />
+          Ministry of Tribal Affairs
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
           Scholarship &amp; Fellowship Schemes

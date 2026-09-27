@@ -12,13 +12,26 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <Link href="/apply" className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#de5c36] to-[#e88a52] flex items-center justify-center text-white shadow-md">
-                  <GraduationCap className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="font-bold text-sm text-gray-900">Yojana Setu</span>
-                  <span className="text-[9px] text-gray-400 block -mt-0.5">Scholarship Portal</span>
+              <Link href="/apply" className="flex items-center gap-3">
+                <img
+                  src="/yojana-setu-logo.png"
+                  alt="Yojana Setu"
+                  className="h-10 w-auto object-contain"
+                />
+                <div className="hidden sm:flex items-center gap-2.5 border-l border-gray-300 pl-3">
+                  <img
+                    src="/ashoka-emblem.png"
+                    alt="State Emblem of India"
+                    className="h-9 w-auto object-contain"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider leading-none">
+                      Govt. of India
+                    </span>
+                    <span className="text-[11px] text-gray-800 font-bold uppercase tracking-wider leading-tight">
+                      Ministry of Tribal Affairs
+                    </span>
+                  </div>
                 </div>
               </Link>
             </div>
@@ -34,7 +47,11 @@ export default function ApplyLayout({ children }: { children: React.ReactNode })
 
       <footer className="border-t border-gray-200 bg-white/40 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-center gap-2">
-          <Award className="w-3 h-3 text-[#de5c36]" />
+          <img
+            src="/ashoka-emblem.png"
+            alt="State Emblem of India"
+            className="h-5 w-auto object-contain"
+          />
           <p className="text-xs text-gray-400">Ministry of Tribal Affairs — Scholarship Portal &copy; {new Date().getFullYear()}</p>
         </div>
       </footer>

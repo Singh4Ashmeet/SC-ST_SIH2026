@@ -147,15 +147,31 @@ async def upload_document(
             detail=f"Failed to upload file to storage: {str(e)}",
         )
 
-    # Create Document row
-    document = Document(
-        application_id=application_id,
-        doc_type=doc_type,
-        storage_key=storage_key,
-        status=DocumentStatus.PENDING,
-        content_type=file.content_type or "application/octet-stream",
-    )
-    db.add(document)
+    # Check if a document with this doc_type already exists for this application
+    existing_docs = db.query(Document).filter(
+        Document.application_id == application_id,
+        Document.doc_type == doc_type
+    ).order_by(Document.uploaded_at.desc()).all()
+
+    if existing_docs:
+        document = existing_docs[0]
+        document.storage_key = storage_key
+        document.status = DocumentStatus.PENDING
+        document.content_type = file.content_type or "application/octet-stream"
+        document.extracted_fields = None
+        document.deficiency_reasons = None
+        document.reviewed_at = None
+        for old_dup in existing_docs[1:]:
+            db.delete(old_dup)
+    else:
+        document = Document(
+            application_id=application_id,
+            doc_type=doc_type,
+            storage_key=storage_key,
+            status=DocumentStatus.PENDING,
+            content_type=file.content_type or "application/octet-stream",
+        )
+        db.add(document)
     db.flush()
 
     # Create audit log with cryptographic hash chain
@@ -178,9 +194,8 @@ async def upload_document(
     db.commit()
     db.refresh(document)
 
-    # Trigger synchronous OCR processing (would be async in production)
-    # Note: In production, this should be moved to a background job queue
-    processing_result = process_document(db, document.id)
+    # Trigger synchronous OCR processing (pass in-memory file_bytes to eliminate download latency)
+    processing_result = process_document(db, document.id, file_bytes=file_bytes)
 
     # Refresh document to get updated extracted_fields
     db.refresh(document)
@@ -225,7 +240,16 @@ def list_documents(
             detail=f"Application with id '{application_id}' not found",
         )
 
-    documents = db.query(Document).filter(Document.application_id == application_id).all()
+    raw_documents = db.query(Document).filter(Document.application_id == application_id).order_by(Document.uploaded_at.desc()).all()
+
+    # Deduplicate so only the canonical/latest document per doc_type is returned
+    seen_types = set()
+    documents = []
+    for doc in raw_documents:
+        if doc.doc_type not in seen_types:
+            seen_types.add(doc.doc_type)
+            documents.append(doc)
+    documents.reverse()
 
     result = []
     for doc in documents:
@@ -489,6 +513,158 @@ def reprocess_document(
     db.refresh(document)
 
     # Generate presigned URL for response
+    download_url = storage_service.get_presigned_url(document.storage_key)
+
+    return DocumentRead(
+        id=document.id,
+        application_id=document.application_id,
+        doc_type=document.doc_type,
+        storage_key=document.storage_key,
+        status=document.status,
+        extracted_fields=document.extracted_fields,
+        deficiency_reasons=document.deficiency_reasons,
+        uploaded_at=document.uploaded_at,
+        reviewed_at=document.reviewed_at,
+        download_url=download_url,
+    )
+
+
+from pydantic import BaseModel
+
+class DocumentReviewActionRequest(BaseModel):
+    remarks: Optional[str] = None
+    reason_code: Optional[str] = "OFFICER_REVIEW"
+
+
+@router.post(
+    "/documents/{document_id}/verify",
+    response_model=DocumentRead,
+)
+@router.post(
+    "/{application_id}/documents/{document_id}/verify",
+    response_model=DocumentRead,
+)
+def verify_document_by_officer(
+    document_id: uuid.UUID,
+    application_id: Optional[uuid.UUID] = None,
+    action: Optional[DocumentReviewActionRequest] = None,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> DocumentRead:
+    """
+    Officer manual verification: marks document as VERIFIED, clears automated deficiency flags,
+    and logs officer review notes and immutable audit trail.
+    """
+    from datetime import datetime, timezone
+    from app.services.audit_service import create_audit_log
+
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    document.status = DocumentStatus.VERIFIED
+    document.reviewed_at = datetime.now(timezone.utc)
+    document.deficiency_reasons = []
+
+    if document.extracted_fields is None:
+        document.extracted_fields = {}
+
+    document.extracted_fields["_officer_review"] = {
+        "verified_by": current_user.email if current_user else "Scrutiny Officer",
+        "role": current_user.role.value if current_user else "SCRUTINY_OFFICER",
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "remarks": action.remarks if action else "Document manually verified by Officer",
+    }
+
+    create_audit_log(
+        db=db,
+        application_id=document.application_id,
+        scheme_id=document.application.scheme_id if document.application else None,
+        actor_user_id=current_user.id if current_user else None,
+        action="document_verified_by_officer",
+        details={
+            "document_id": str(document.id),
+            "doc_type": document.doc_type,
+            "remarks": action.remarks if action else "Manually verified",
+        },
+    )
+
+    db.commit()
+    db.refresh(document)
+    download_url = storage_service.get_presigned_url(document.storage_key)
+
+    return DocumentRead(
+        id=document.id,
+        application_id=document.application_id,
+        doc_type=document.doc_type,
+        storage_key=document.storage_key,
+        status=document.status,
+        extracted_fields=document.extracted_fields,
+        deficiency_reasons=document.deficiency_reasons,
+        uploaded_at=document.uploaded_at,
+        reviewed_at=document.reviewed_at,
+        download_url=download_url,
+    )
+
+
+@router.post(
+    "/documents/{document_id}/flag-deficient",
+    response_model=DocumentRead,
+)
+@router.post(
+    "/{application_id}/documents/{document_id}/flag-deficient",
+    response_model=DocumentRead,
+)
+def flag_document_deficient_by_officer(
+    document_id: uuid.UUID,
+    application_id: Optional[uuid.UUID] = None,
+    action: Optional[DocumentReviewActionRequest] = None,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> DocumentRead:
+    """
+    Officer deficiency flagging: flags document as DEFICIENT, attaches specific deficiency reasons,
+    and logs officer review notes.
+    """
+    from datetime import datetime, timezone
+    from app.services.audit_service import create_audit_log
+
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    message = action.remarks if action and action.remarks else "Document flagged as deficient by Scrutiny Officer"
+    code = action.reason_code if action and action.reason_code else "OFFICER_FLAGGED"
+
+    document.status = DocumentStatus.DEFICIENT
+    document.reviewed_at = datetime.now(timezone.utc)
+    document.deficiency_reasons = [{"code": code, "message": message}]
+
+    if document.extracted_fields is None:
+        document.extracted_fields = {}
+
+    document.extracted_fields["_officer_review"] = {
+        "flagged_by": current_user.email if current_user else "Scrutiny Officer",
+        "role": current_user.role.value if current_user else "SCRUTINY_OFFICER",
+        "flagged_at": datetime.now(timezone.utc).isoformat(),
+        "remarks": message,
+    }
+
+    create_audit_log(
+        db=db,
+        application_id=document.application_id,
+        scheme_id=document.application.scheme_id if document.application else None,
+        actor_user_id=current_user.id if current_user else None,
+        action="document_flagged_deficient_by_officer",
+        details={
+            "document_id": str(document.id),
+            "doc_type": document.doc_type,
+            "remarks": message,
+        },
+    )
+
+    db.commit()
+    db.refresh(document)
     download_url = storage_service.get_presigned_url(document.storage_key)
 
     return DocumentRead(

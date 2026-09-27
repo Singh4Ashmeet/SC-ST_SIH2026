@@ -22,7 +22,7 @@ from app.models.audit_log import AuditLog
 from app.models.document import Document
 from app.models.conflict import Conflict
 from app.models.merit_evaluation import MeritEvaluation
-from app.models.institute_verification import InstituteVerification
+from app.models.institute_verification import InstituteVerification, InstituteVerificationStatus
 from app.models.grievance import Grievance
 from app.models.scheme import Scheme
 from app.models.user import User, UserRole
@@ -58,7 +58,10 @@ def list_applications(
             query = query.filter((Application.state == current_user.state_scope) | (Application.state.is_(None)))
         # Scrutiny queue filtering
         if queue == "scrutiny" or not queue:
-            scrutiny_states = ["submitted", "document_scrutiny", "deficiency_flagged", "resubmitted", "under_scrutiny"]
+            scrutiny_states = [
+                "submitted", "document_scrutiny", "deficiency_flagged",
+                "deficient", "resubmitted", "under_scrutiny", "eligibility_check"
+            ]
             query = query.filter(Application.current_state.in_(scrutiny_states))
 
     elif current_user.role == UserRole.INSTITUTE_VERIFIER:
@@ -90,11 +93,13 @@ def list_applications(
         query = query.filter(Application.current_state == current_state)
     if queue and queue != "all":
         if queue == "scrutiny":
-            query = query.filter(Application.current_state.in_(["submitted", "document_scrutiny", "deficiency_flagged", "resubmitted"]))
+            query = query.filter(Application.current_state.in_(["submitted", "document_scrutiny", "deficiency_flagged", "deficient", "resubmitted", "under_scrutiny", "eligibility_check"]))
         elif queue == "institute":
             query = query.filter(Application.current_state.in_(["institute_verification", "pending_institute_verification"]))
         elif queue == "selection":
             query = query.filter(Application.current_state.in_(["merit_evaluated", "selection", "committee_review"]))
+        elif queue in ["awarded", "approved"]:
+            query = query.filter(Application.current_state.in_(["approved", "fellowship_awarded", "disbursed"]))
     if search:
         search_pattern = f"%{search}%"
         query = query.filter(
@@ -104,6 +109,38 @@ def list_applications(
 
     offset = (page - 1) * page_size
     applications = list(query.order_by(Application.created_at.desc()).offset(offset).limit(page_size).all())
+
+    role_map = {
+        "submitted": "SYSTEM_EVALUATOR",
+        "eligibility_check": "SYSTEM_EVALUATOR",
+        "document_scrutiny": "SCRUTINY_OFFICER",
+        "deficient": "APPLICANT",
+        "deficiency_flagged": "APPLICANT",
+        "resubmitted": "SCRUTINY_OFFICER",
+        "scrutiny_completed": "INSTITUTE_VERIFIER",
+        "institute_verification": "INSTITUTE_VERIFIER",
+        "pending_selection": "SELECTION_COMMITTEE",
+        "merit_evaluated": "SELECTION_COMMITTEE",
+        "selection": "SELECTION_COMMITTEE",
+        "committee_review": "SELECTION_COMMITTEE",
+        "approved": "SCHEME_ADMIN",
+        "fellowship_awarded": "SCHEME_ADMIN",
+        "disbursed": "SCHOLAR_ACTIVE",
+        "rejected": "CLOSED",
+        "ineligible": "CLOSED",
+    }
+    needs_commit = False
+    for app in applications:
+        c_role = role_map.get((app.current_state or "").lower(), "OFFICER")
+        if app.current_responsible_role != c_role:
+            app.current_responsible_role = c_role
+            needs_commit = True
+    if needs_commit:
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return applications
 
 
@@ -185,6 +222,35 @@ def get_application(
     from app.core.authorization import verify_applicant_ownership_or_permission
     from app.core.permissions import Permission
     verify_applicant_ownership_or_permission(current_user, application, Permission.APPLICATION_VIEW)
+
+    role_map = {
+        "submitted": "SYSTEM_EVALUATOR",
+        "eligibility_check": "SYSTEM_EVALUATOR",
+        "document_scrutiny": "SCRUTINY_OFFICER",
+        "deficient": "APPLICANT",
+        "deficiency_flagged": "APPLICANT",
+        "resubmitted": "SCRUTINY_OFFICER",
+        "scrutiny_completed": "INSTITUTE_VERIFIER",
+        "institute_verification": "INSTITUTE_VERIFIER",
+        "pending_selection": "SELECTION_COMMITTEE",
+        "merit_evaluated": "SELECTION_COMMITTEE",
+        "selection": "SELECTION_COMMITTEE",
+        "committee_review": "SELECTION_COMMITTEE",
+        "approved": "SCHEME_ADMIN",
+        "fellowship_awarded": "SCHEME_ADMIN",
+        "disbursed": "SCHOLAR_ACTIVE",
+        "rejected": "CLOSED",
+        "ineligible": "CLOSED",
+    }
+    canonical_role = role_map.get((application.current_state or "").lower(), "OFFICER")
+    if application.current_responsible_role != canonical_role:
+        application.current_responsible_role = canonical_role
+        try:
+            db.commit()
+            db.refresh(application)
+        except Exception:
+            db.rollback()
+
     return application
 
 
@@ -272,6 +338,88 @@ def apply_transition(
         ) from exc
 
     return updated_application
+
+
+class InstituteVerificationRequest(BaseModel):
+    decision: str = "VERIFIED"  # "VERIFIED" | "QUERY_RAISED" | "REJECTED"
+    institution_code: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+@router.post("/{application_id}/institute-verify")
+def verify_application_by_institute(
+    application_id: uuid.UUID,
+    payload: InstituteVerificationRequest,
+    current_user: Annotated[Optional[User], Depends(get_optional_current_user)] = None,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Institutional Verification Endpoint:
+    Allows Institute Nodal Officers / Verifiers or Super Admins to record bonafide enrollment verification.
+    If decision is VERIFIED and application is at institute verification stage, advances it to selection.
+    """
+    application = db.query(Application).filter(Application.id == application_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    decision = payload.decision.upper()
+    remarks = payload.remarks or f"Institutional verification decision: {decision}"
+
+    inst_ver = db.query(InstituteVerification).filter(
+        InstituteVerification.application_id == application_id
+    ).first()
+
+    inst_name = (
+        application.applicant_data.get("institution_name")
+        or application.applicant_data.get("university")
+        or application.applicant_data.get("institution")
+        or "Recognized University / Institution"
+    )
+
+    if not inst_ver:
+        inst_ver = InstituteVerification(
+            application_id=application_id,
+            institution_name=inst_name,
+            institution_code=payload.institution_code or application.institution_id or "INST-VERIFIED",
+            status=InstituteVerificationStatus(decision) if decision in InstituteVerificationStatus.__members__ else InstituteVerificationStatus.VERIFIED,
+            verifier_user_id=current_user.id if current_user else None,
+            remarks=remarks,
+        )
+        db.add(inst_ver)
+    else:
+        inst_ver.status = InstituteVerificationStatus(decision) if decision in InstituteVerificationStatus.__members__ else InstituteVerificationStatus.VERIFIED
+        inst_ver.remarks = remarks
+        inst_ver.verifier_user_id = current_user.id if current_user else None
+
+    from app.services.audit_service import create_audit_log
+    create_audit_log(
+        db=db,
+        application_id=application.id,
+        scheme_id=application.scheme_id,
+        actor_user_id=current_user.id if current_user else None,
+        action="institute_verified" if decision == "VERIFIED" else "institute_query_raised",
+        from_state=application.current_state,
+        to_state="selection" if decision == "VERIFIED" and application.current_state in ["institute_verification", "scrutiny_completed"] else application.current_state,
+        details={"decision": decision, "remarks": remarks, "institution_name": inst_name},
+    )
+
+    # Advance workflow if currently at institute verification
+    if decision == "VERIFIED" and application.current_state in ["institute_verification", "scrutiny_completed"]:
+        application.current_state = "selection"
+        application.current_responsible_role = "SELECTION_COMMITTEE"
+        from datetime import datetime, timezone
+        application.stage_entry_time = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(application)
+
+    return {
+        "success": True,
+        "message": f"Institutional verification recorded: {decision}",
+        "status": inst_ver.status.value,
+        "application_state": application.current_state,
+        "current_responsible_role": application.current_responsible_role,
+    }
 
 
 @router.get("/{application_id}/audit-log")
@@ -414,7 +562,14 @@ def get_case_file(
 
     # 1. Documents & Extracted Fields with Document Trust Engine
     from app.services.document_trust_engine import evaluate_document_trust, build_evidence_graph
-    documents = db.query(Document).filter(Document.application_id == application_id).all()
+    raw_documents = db.query(Document).filter(Document.application_id == application_id).order_by(Document.uploaded_at.desc()).all()
+    seen_types = set()
+    documents = []
+    for d in raw_documents:
+        if d.doc_type not in seen_types:
+            seen_types.add(d.doc_type)
+            documents.append(d)
+    documents.reverse()
     doc_list = []
     for d in documents:
         trust_eval = evaluate_document_trust(d, application, scheme_config, documents)
@@ -435,7 +590,7 @@ def get_case_file(
     eligibility_result = None
     if scheme:
         try:
-            eval_res = evaluate_eligibility(scheme.config, application.applicant_data)
+            eval_res = evaluate_eligibility(scheme_config or scheme.config, application.applicant_data)
             eligibility_result = {
                 "passed": eval_res.passed,
                 "failed_rules": [
@@ -447,8 +602,8 @@ def get_case_file(
                     for fr in eval_res.failed_rules
                 ]
             }
-        except Exception:
-            pass
+        except Exception as eval_err:
+            logger.error(f"Eligibility evaluation error for {application_id}: {eval_err}")
 
     # 3. Cross-Scheme Conflict
     conflict_data = None
@@ -551,45 +706,106 @@ def get_case_file(
         for t in transitions
     ]
 
-    # 9. Dynamic SLA Calculation
+    # 9. Dynamic Canonical Role & SLA Calculation
     from datetime import datetime, timezone, timedelta
     entry_time = application.stage_entry_time or application.updated_at or application.created_at
     if entry_time and entry_time.tzinfo is None:
         entry_time = entry_time.replace(tzinfo=timezone.utc)
     now = datetime.now(timezone.utc)
     
-    sla_hours_map = {
-        "submitted": 24,
-        "eligibility_check": 24,
-        "document_scrutiny": 48,
-        "deficiency_flagged": 72,
-        "resubmitted": 24,
-        "scrutiny_completed": 24,
-        "institute_verification": 72,
-        "merit_evaluated": 48,
-        "selection": 96,
-        "committee_review": 96,
-        "approved": 120,
-        "disbursed": 120,
-    }
-    stage_sla_hours = sla_hours_map.get(application.current_state.lower(), 48)
-    deadline = entry_time + timedelta(hours=stage_sla_hours) if entry_time else now + timedelta(hours=48)
-    diff = deadline - now
-    total_seconds = int(diff.total_seconds())
-    is_breached = total_seconds < 0
-    abs_seconds = abs(total_seconds)
-    hours = abs_seconds // 3600
-    minutes = (abs_seconds % 3600) // 60
+    st = (application.current_state or "").lower()
     
-    formatted_sla = f"SLA BREACHED ({hours}h {minutes}m overdue)" if is_breached else f"{hours}h {minutes}m remaining"
+    role_map = {
+        "submitted": "SYSTEM_EVALUATOR",
+        "eligibility_check": "SYSTEM_EVALUATOR",
+        "document_scrutiny": "SCRUTINY_OFFICER",
+        "deficient": "APPLICANT",
+        "deficiency_flagged": "APPLICANT",
+        "resubmitted": "SCRUTINY_OFFICER",
+        "scrutiny_completed": "INSTITUTE_VERIFIER",
+        "institute_verification": "INSTITUTE_VERIFIER",
+        "pending_selection": "SELECTION_COMMITTEE",
+        "merit_evaluated": "SELECTION_COMMITTEE",
+        "selection": "SELECTION_COMMITTEE",
+        "committee_review": "SELECTION_COMMITTEE",
+        "approved": "SCHEME_ADMIN",
+        "fellowship_awarded": "SCHEME_ADMIN",
+        "disbursed": "SCHOLAR_ACTIVE",
+        "rejected": "CLOSED",
+        "ineligible": "CLOSED",
+    }
+    canonical_role = role_map.get(st, "OFFICER")
+    if application.current_responsible_role != canonical_role:
+        application.current_responsible_role = canonical_role
+        try:
+            db.commit()
+            db.refresh(application)
+        except Exception:
+            db.rollback()
+
+    is_completed = False
+    is_breached = False
+    remaining_hours = 0
+    remaining_minutes = 0
+    deadline = None
+    stage_sla_hours = 0
+
+    if st in ["approved", "fellowship_awarded"]:
+        is_completed = True
+        formatted_sla = "STAGE COMPLETED: Fellowship Awarded (Pending Disbursal)"
+        next_action = "Initiate Direct Benefit Transfer (DBT) & PFMS Disbursal"
+    elif st == "disbursed":
+        is_completed = True
+        formatted_sla = "STAGE COMPLETED: Fellowship Disbursed via PFMS"
+        next_action = "Scholar Active — Post-Selection Monitoring & Annual Renewal"
+    elif st in ["rejected", "ineligible"]:
+        is_completed = True
+        formatted_sla = "APPLICATION CLOSED: Decision Recorded"
+        next_action = "Case closed. If appeal submitted, review under Grievances."
+    else:
+        sla_hours_map = {
+            "submitted": 24,
+            "eligibility_check": 24,
+            "document_scrutiny": 48,
+            "deficiency_flagged": 72,
+            "deficient": 72,
+            "resubmitted": 24,
+            "scrutiny_completed": 24,
+            "institute_verification": 72,
+            "merit_evaluated": 48,
+            "selection": 96,
+            "pending_selection": 96,
+            "committee_review": 96,
+        }
+        stage_sla_hours = sla_hours_map.get(st, 48)
+        deadline = entry_time + timedelta(hours=stage_sla_hours) if entry_time else now + timedelta(hours=48)
+        diff = deadline - now
+        total_seconds = int(diff.total_seconds())
+        is_breached = total_seconds < 0
+        abs_seconds = abs(total_seconds)
+        remaining_hours = abs_seconds // 3600
+        remaining_minutes = (abs_seconds % 3600) // 60
+        formatted_sla = f"SLA BREACHED ({remaining_hours}h {remaining_minutes}m overdue)" if is_breached else f"{remaining_hours}h {remaining_minutes}m remaining"
+        
+        if st in ["deficient", "deficiency_flagged"]:
+            next_action = "Awaiting applicant to resubmit corrected documents"
+        elif st in ["selection", "pending_selection", "committee_review"]:
+            next_action = "Selection Committee to review score & record award decision"
+        elif st in ["institute_verification", "scrutiny_completed"]:
+            next_action = "Institute Nodal Officer to verify bonafide enrollment"
+        elif st in ["document_scrutiny", "resubmitted"]:
+            next_action = "Scrutiny Officer to review documents and complete checklist"
+        else:
+            next_action = "Run automated eligibility rule check & begin document scrutiny"
 
     sla_data = {
         "stage_entry_time": entry_time.isoformat() if entry_time else None,
-        "deadline": deadline.isoformat(),
+        "deadline": deadline.isoformat() if deadline else None,
         "sla_hours": stage_sla_hours,
         "is_breached": is_breached,
-        "remaining_hours": hours if not is_breached else -hours,
-        "remaining_minutes": minutes,
+        "is_completed": is_completed,
+        "remaining_hours": remaining_hours if not is_breached else -remaining_hours,
+        "remaining_minutes": remaining_minutes,
         "formatted_status": formatted_sla,
     }
 
@@ -600,9 +816,9 @@ def get_case_file(
         "conflict_status": conflict_data.get("status") if conflict_data else "CLEAR",
         "merit_score": merit_data.get("total_score") if merit_data else None,
         "institute_status": inst_data.get("status") if inst_data else "PENDING",
-        "current_responsible_role": application.current_responsible_role or "SCRUTINY_OFFICER",
+        "current_responsible_role": canonical_role,
         "viewing_as_role": user_role,
-        "next_recommended_action": "Review documents & run scrutiny" if application.current_state == "submitted" else f"Advance workflow stage from {application.current_state}",
+        "next_recommended_action": next_action,
     }
 
     # Role-scoped data projection

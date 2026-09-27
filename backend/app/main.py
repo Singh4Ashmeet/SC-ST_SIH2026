@@ -60,10 +60,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Content-Security-Policy"] = "frame-ancestors 'none';"
+
+        # If this is a document file/preview stream, allow framing by our dashboard & frontend
+        path = request.url.path.lower()
+        if "/file" in path or "/preview" in path:
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'self' http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000;"
+        else:
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'none';"
         return response
 
 app.add_middleware(SecurityHeadersMiddleware)

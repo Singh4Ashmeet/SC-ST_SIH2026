@@ -41,13 +41,28 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10 space-y-6">
         {/* Brand */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#de5c36] to-[#e88a52] shadow-xl shadow-[#de5c36]/20 mb-2">
-            <ShieldCheck className="w-8 h-8 text-white" />
+          <div className="flex justify-center mb-3">
+            <img
+              src="/yojana-setu-logo.png"
+              alt="Yojana Setu Logo"
+              className="h-32 sm:h-40 w-auto object-contain drop-shadow-lg"
+            />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Yojana Setu</h1>
-          <p className="text-xs text-gray-500 max-w-sm mx-auto">
-            Ministry of Tribal Affairs — Scholarship &amp; Fellowship Administration Portal
-          </p>
+          <div className="flex flex-col items-center gap-1.5 pt-1">
+            <div className="inline-flex items-center gap-2 bg-white/70 px-3.5 py-1.5 rounded-full border border-gray-200/80 shadow-sm">
+              <img
+                src="/ashoka-emblem.png"
+                alt="State Emblem of India"
+                className="h-6 w-auto object-contain"
+              />
+              <span className="text-xs font-bold text-gray-800 tracking-wide uppercase">
+                Ministry of Tribal Affairs
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-500 font-medium">
+              Scholarship &amp; Fellowship Administration Portal
+            </p>
+          </div>
         </div>
 
         {/* Login Card */}
@@ -101,11 +116,15 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="text-center space-y-1">
-          <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
-            <Award className="w-3 h-3 text-[#de5c36]" />
-            <span>Transparency • Accuracy • Empowerment</span>
+          <p className="text-[10px] text-gray-500 font-medium">Transparency • Accuracy • Empowerment</p>
+          <div className="flex items-center justify-center gap-1.5">
+            <img
+              src="/ashoka-emblem.png"
+              alt="State Emblem of India"
+              className="h-4 w-auto object-contain"
+            />
+            <p className="text-[10px] text-gray-400">© 2026 Ministry of Tribal Affairs — Government of India</p>
           </div>
-          <p className="text-[10px] text-gray-300">© 2026 Ministry of Tribal Affairs — Government of India</p>
         </div>
       </div>
     </div>

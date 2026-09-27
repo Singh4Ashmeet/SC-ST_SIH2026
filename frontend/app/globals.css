@@ -213,3 +213,17 @@
 .stagger-3 { animation-delay: 0.15s; }
 .stagger-4 { animation-delay: 0.2s; }
 .stagger-5 { animation-delay: 0.25s; }
+
+/* ── Hide Next.js Dev Indicator Badge ('N' icon in bottom-left) ── */
+[data-nextjs-dev-tools-button],
+[data-nextjs-toast],
+[data-next-badge],
+nextjs-portal,
+#__next-build-watcher,
+div[data-nextjs-toast-wrapper],
+div:has(> svg[data-nextjs-dev-tools-button]) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

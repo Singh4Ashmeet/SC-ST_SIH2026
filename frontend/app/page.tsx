@@ -37,14 +37,29 @@ export default function Home() {
 
       {/* Navigation */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#de5c36] to-[#e88a52] flex items-center justify-center shadow-md">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <span className="text-sm font-bold text-gray-900 tracking-tight">Yojana Setu</span>
-            <span className="text-[9px] text-gray-400 block -mt-0.5">Ministry of Tribal Affairs</span>
-          </div>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3">
+            <img
+              src="/yojana-setu-logo.png"
+              alt="Yojana Setu"
+              className="h-11 w-auto object-contain"
+            />
+            <div className="hidden sm:flex items-center gap-2.5 border-l border-gray-300 pl-3">
+              <img
+                src="/ashoka-emblem.png"
+                alt="State Emblem of India"
+                className="h-10 w-auto object-contain"
+              />
+              <div className="flex flex-col">
+                <span className="text-[9px] text-gray-500 font-semibold uppercase tracking-wider leading-none">
+                  Govt. of India
+                </span>
+                <span className="text-[11px] text-gray-800 font-bold uppercase tracking-wider leading-tight">
+                  Ministry of Tribal Affairs
+                </span>
+              </div>
+            </div>
+          </Link>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/apply" className="text-xs font-medium text-gray-600 hover:text-gray-900 transition">Apply</Link>
@@ -53,19 +68,28 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-16 pb-20">
-        <div className="max-w-2xl">
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-10 pb-20">
+        <div className="max-w-3xl mx-auto text-center flex flex-col items-center">
+          {/* LARGE LOGO CENTERED JUST ABOVE THE TAGLINE */}
+          <div className="mb-6 flex justify-center">
+            <img
+              src="/yojana-setu-logo.png"
+              alt="Yojana Setu Logo"
+              className="h-36 sm:h-44 md:h-52 w-auto object-contain drop-shadow-md"
+            />
+          </div>
+
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/70 border border-gray-200 rounded-full text-[11px] font-medium text-gray-600 mb-4">
             <Award className="w-3 h-3 text-[#de5c36]" /> SIH 2026 — Smart India Hackathon
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight leading-tight">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight leading-tight text-center">
             AI-Driven Scholarship <br /><span className="text-[#de5c36]">Verification</span> &amp; <span className="text-[#105a8b]">Scrutiny</span>
           </h1>
-          <p className="text-sm text-gray-600 mt-4 max-w-xl leading-relaxed">
+          <p className="text-sm text-gray-600 mt-4 max-w-2xl mx-auto leading-relaxed text-center">
             A technology-driven platform for the Ministry of Tribal Affairs to process, verify, and disburse
             scholarships &amp; fellowships to Scheduled Tribe students across India with transparency and accuracy.
           </p>
-          <div className="flex items-center gap-3 mt-6">
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
             <Link href="/apply" className="px-5 py-2.5 text-sm font-semibold bg-[#de5c36] hover:bg-[#c4502f] text-white rounded-lg shadow-sm transition flex items-center gap-2">
               Apply for Scholarship <ArrowRight className="w-4 h-4" />
             </Link>
@@ -144,11 +168,15 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-gray-200/60 bg-white/40 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3 text-xs text-gray-400">
-            <Award className="w-4 h-4 text-[#de5c36]" />
-            <span>Transparency • Accuracy • Empowerment</span>
+          <div className="flex items-center gap-2.5 text-xs text-gray-600 font-medium">
+            <img
+              src="/ashoka-emblem.png"
+              alt="State Emblem of India"
+              className="h-5 w-auto object-contain"
+            />
+            <span>Ministry of Tribal Affairs — Government of India</span>
           </div>
-          <p className="text-[10px] text-gray-300">© 2026 Ministry of Tribal Affairs — Government of India. All rights reserved.</p>
+          <p className="text-[11px] text-gray-400">Transparency • Accuracy • Empowerment</p>
         </div>
       </footer>
     </div>

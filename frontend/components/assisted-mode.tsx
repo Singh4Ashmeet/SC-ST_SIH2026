@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Sparkles,
   HelpCircle,
@@ -15,16 +15,38 @@ import {
   ShieldCheck,
   Check,
   X,
+  AlertTriangle,
 } from "lucide-react";
+
+export interface RenderableField {
+  key: string;
+  label: string;
+  type: "text" | "number" | "email" | "date" | "select" | "multiselect" | "boolean" | "textarea";
+  required: boolean;
+  placeholder?: string;
+  helpText?: string;
+  options?: { value: string; label: string }[];
+}
+
+interface RequiredDocInfo {
+  doc_type: string;
+  label?: string;
+  required?: boolean;
+  description?: string;
+  accepted_formats?: string[];
+}
 
 interface AssistedModeProps {
   schemeName: string;
   schemeCode: string;
+  formFields: RenderableField[];
+  requiredDocs?: RequiredDocInfo[];
   formData: Record<string, any>;
   onUpdateField: (key: string, value: any) => void;
   onSubmit: () => void;
   isSubmitting: boolean;
   onClose: () => void;
+  submitError?: string | null;
 }
 
 type Language = "en" | "hi";
@@ -41,165 +63,84 @@ interface Translation {
   submit: string;
   submitting: string;
   checklistTitle: string;
-  acceptableExamples: string;
-  steps: {
-    personal: {
-      title: string;
-      desc: string;
-      nameLabel: string;
-      nameHint: string;
-      emailLabel: string;
-      phoneLabel: string;
-      phoneHint: string;
-    };
-    category: {
-      title: string;
-      desc: string;
-      stConfirmLabel: string;
-      stConfirmDesc: string;
-      incomeLabel: string;
-      incomeHint: string;
-      stateLabel: string;
-      districtLabel: string;
-    };
-    academic: {
-      title: string;
-      desc: string;
-      institutionLabel: string;
-      courseLabel: string;
-      marksLabel: string;
-    };
-    documents: {
-      title: string;
-      desc: string;
-      doc1: string;
-      doc1Example: string;
-      doc2: string;
-      doc2Example: string;
-      doc3: string;
-      doc3Example: string;
-    };
-    review: {
-      title: string;
-      desc: string;
-      confirmMsg: string;
-    };
+  reviewTitle: string;
+  reviewDesc: string;
+  declaration: string;
+  missingFieldsWarning: string;
+  fixField: string;
+  stepNames: {
+    personal: string;
+    personalDesc: string;
+    eligibility: string;
+    eligibilityDesc: string;
+    academic: string;
+    academicDesc: string;
+    documents: string;
+    documentsDesc: string;
+    review: string;
+    reviewDesc: string;
   };
 }
 
 const TRANSLATIONS: Record<Language, Translation> = {
   en: {
     title: "Assisted Application Mode",
-    subtitle: "Simplified step-by-step guidance designed for low bandwidth and mobile devices.",
+    subtitle: "Step-by-step assisted guidance ensuring 100% complete submission for low-bandwidth devices.",
     step: "Step",
     of: "of",
     saveResume: "Save & Resume Later",
-    draftSaved: "Draft saved locally on this device",
+    draftSaved: "Draft saved locally",
     next: "Continue",
     prev: "Previous Step",
     submit: "Submit Application Now",
     submitting: "Submitting Application...",
     checklistTitle: "Document Readiness Checklist",
-    acceptableExamples: "What is an acceptable document?",
-    steps: {
-      personal: {
-        title: "Step 1: Personal Details",
-        desc: "Please enter your name exactly as it appears on your official Scheduled Tribe certificate.",
-        nameLabel: "Full Name (as per Certificate)",
-        nameHint: "Do not add titles like Shri, Dr, or Mr.",
-        emailLabel: "Email Address",
-        phoneLabel: "10-Digit Mobile Number",
-        phoneHint: "SMS alerts regarding document scrutiny will be sent here.",
-      },
-      category: {
-        title: "Step 2: ST Category & Income Eligibility",
-        desc: "Ministry of Tribal Affairs fellowships require verified Scheduled Tribe identity and applicable income limits.",
-        stConfirmLabel: "I confirm I belong to a notified Scheduled Tribe (ST)",
-        stConfirmDesc: "Official State/Central caste certificate is mandatory.",
-        incomeLabel: "Annual Family Income (₹ in numbers)",
-        incomeHint: "Enter total family income from all sources (e.g., 250000 for ₹2.5 Lakh).",
-        stateLabel: "Domicile State",
-        districtLabel: "District of Residence",
-      },
-      academic: {
-        title: "Step 3: Academic & Admission Details",
-        desc: "Provide details of your enrolled higher education or research program.",
-        institutionLabel: "University / Institute Name",
-        courseLabel: "Program of Study (M.Phil / Ph.D / Masters)",
-        marksLabel: "Qualifying Degree Marks / CGPA (e.g. 78.5)",
-      },
-      documents: {
-        title: "Step 4: Document Checklist & Guidelines",
-        desc: "Ensure you have clear digital copies (PDF or photo) of these required certificates before submitting.",
-        doc1: "1. Scheduled Tribe (ST) Certificate",
-        doc1Example: "Issued by competent Sub-Divisional Officer (SDO) or District Magistrate with official seal / digital QR code.",
-        doc2: "2. Annual Income Certificate",
-        doc2Example: "Issued for the current financial year by Circle Officer (CO) or Tehsildar.",
-        doc3: "3. Admission Confirmation & University ID",
-        doc3Example: "Official admission letter specifying M.Phil/Ph.D registration date and department.",
-      },
-      review: {
-        title: "Step 5: Review & Submit",
-        desc: "Please verify all declared information before submitting for automated eligibility & OCR scrutiny.",
-        confirmMsg: "I declare that the information provided above is true and authentic. I understand false certificates lead to immediate disqualification and legal action.",
-      },
+    reviewTitle: "Step 5: Review & Submit",
+    reviewDesc: "Please verify all declared information before submitting for automated eligibility & OCR scrutiny.",
+    declaration: "I declare that the information provided above is true and authentic. I understand false certificates lead to immediate disqualification and legal action.",
+    missingFieldsWarning: "Please fill in the following required fields before submitting:",
+    fixField: "Fix in Step",
+    stepNames: {
+      personal: "Step 1: Personal & Contact Information",
+      personalDesc: "Enter your official personal identification and contact details.",
+      eligibility: "Step 2: Social Category & Demographics",
+      eligibilityDesc: "Enter caste verification, age, and income thresholds required by scheme policy.",
+      academic: "Step 3: Academic & Institutional Details",
+      academicDesc: "Provide details of your enrolled higher education institution and program.",
+      documents: "Step 4: Required Documents & Readiness",
+      documentsDesc: "Ensure you have clear digital copies of these required certificates before submitting.",
+      review: "Step 5: Final Review & Submission",
+      reviewDesc: "Verify your entered details. All fields are checked for policy compliance.",
     },
   },
   hi: {
     title: "सहायता प्राप्त आवेदन मोड (Assisted Mode)",
-    subtitle: "कम बैंडविड्थ और मोबाइल फोन के लिए विशेष रूप से सरल चरण-दर-चरण आवेदन।",
+    subtitle: "कम बैंडविड्थ और मोबाइल फोन के लिए विशेष रूप से सरल एवं संपूर्ण चरण-दर-चरण आवेदन।",
     step: "चरण",
     of: "कुल",
     saveResume: "सहेजें और बाद में पूरा करें",
-    draftSaved: "प्रारूप आपके फोन/कंप्यूटर पर सुरक्षित कर लिया गया है",
+    draftSaved: "प्रारूप सुरक्षित कर लिया गया है",
     next: "आगे बढ़ें",
     prev: "पिछला चरण",
     submit: "आवेदन अभी जमा करें",
     submitting: "आवेदन जमा किया जा रहा है...",
     checklistTitle: "दस्तावेज तैयारी चेकलिस्ट",
-    acceptableExamples: "मान्य दस्तावेज कैसा होना चाहिए?",
-    steps: {
-      personal: {
-        title: "चरण 1: व्यक्तिगत विवरण",
-        desc: "कृपया अपना नाम ठीक वैसा ही लिखें जैसा आपके अनुसूचित जनजाति (ST) प्रमाण पत्र पर है।",
-        nameLabel: "पूरा नाम (प्रमाण पत्र के अनुसार)",
-        nameHint: "श्री, डॉ., या मिस्टर जैसे शीर्षक न लगाएं।",
-        emailLabel: "ईमेल पता",
-        phoneLabel: "10-अंकों का मोबाइल नंबर",
-        phoneHint: "दस्तावेज जांच और स्थिति के एसएमएस इसी नंबर पर भेजे जाएंगे।",
-      },
-      category: {
-        title: "चरण 2: अनुसूचित जनजाति (ST) श्रेणी और आय",
-        desc: "जनजातीय कार्य मंत्रालय छात्रवृत्ति के लिए वैध ST प्रमाण पत्र और आय सीमा अनिवार्य है।",
-        stConfirmLabel: "मैं पुष्टि करता/करती हूँ कि मैं अनुसूचित जनजाति (ST) वर्ग से हूँ",
-        stConfirmDesc: "सक्षम अधिकारी द्वारा जारी प्रमाण पत्र अनिवार्य होगा।",
-        incomeLabel: "वार्षिक पारिवारिक आय (रुपये अंकों में)",
-        incomeHint: "सभी स्रोतों से कुल वार्षिक आय लिखें (जैसे ₹2,50,000 के लिए 250000)।",
-        stateLabel: "निवास का राज्य",
-        districtLabel: "गृह जिला",
-      },
-      academic: {
-        title: "चरण 3: शैक्षणिक एवं प्रवेश विवरण",
-        desc: "अपने वर्तमान उच्च शिक्षण संस्थान या शोध कार्यक्रम की जानकारी दें।",
-        institutionLabel: "विश्वविद्यालय / संस्थान का नाम",
-        courseLabel: "अध्ययन का पाठ्यक्रम (एम.फिल / पीएच.डी / मास्टर्स)",
-        marksLabel: "पिछली परीक्षा के प्राप्तांक / प्रतिशत (उदा. 75.4)",
-      },
-      documents: {
-        title: "चरण 4: दस्तावेज चेकलिस्ट एवं उदाहरण",
-        desc: "आवेदन जमा करने से पहले जांच लें कि आपके पास इन दस्तावेजों की साफ डिजिटल प्रति उपलब्ध है।",
-        doc1: "1. अनुसूचित जनजाति (ST) जाति प्रमाण पत्र",
-        doc1Example: "अनुमंडल दंडाधिकारी (SDO) या जिला दंडाधिकारी (DM) द्वारा जारी डिजिटल मुहर/क्यूआर कोड सहित।",
-        doc2: "2. वार्षिक पारिवारिक आय प्रमाण पत्र",
-        doc2Example: "सक्षम अंचलाधिकारी (CO) या तहसीलदार द्वारा चालू वित्तीय वर्ष के लिए जारी।",
-        doc3: "3. विश्वविद्यालय प्रवेश पत्र एवं पहचान पत्र",
-        doc3Example: "शोध पंजीकरण और विभाग का विवरण दर्शाने वाला आधिकारिक पत्र।",
-      },
-      review: {
-        title: "चरण 5: समीक्षा एवं अंतिम सबमिशन",
-        desc: "कृपया आवेदन जमा करने से पहले सभी दर्ज विवरणों की दोबारा जांच कर लें।",
-        confirmMsg: "मैं घोषणा करता/करती हूँ कि उपरोक्त दी गई सभी जानकारी पूर्णतः सत्य है। किसी भी असत्य जानकारी पर आवेदन निरस्त किया जा सकता है।",
-      },
+    reviewTitle: "चरण 5: समीक्षा एवं अंतिम सबमिशन",
+    reviewDesc: "कृपया आवेदन जमा करने से पहले सभी दर्ज विवरणों की दोबारा जांच कर लें।",
+    declaration: "मैं घोषणा करता/करती हूँ कि उपरोक्त दी गई सभी जानकारी पूर्णतः सत्य है। किसी भी असत्य जानकारी पर आवेदन निरस्त किया जा सकता है।",
+    missingFieldsWarning: "कृपया सबमिट करने से पहले निम्न अनिवार्य फ़ील्ड भरें:",
+    fixField: "चरण पर जाएं",
+    stepNames: {
+      personal: "चरण 1: व्यक्तिगत और संपर्क विवरण",
+      personalDesc: "अपना आधिकारिक व्यक्तिगत पहचान और संपर्क विवरण दर्ज करें।",
+      eligibility: "चरण 2: सामाजिक श्रेणी और पात्रता",
+      eligibilityDesc: "योजना की शर्तों के अनुसार जाति प्रमाण पत्र, आयु और वार्षिक पारिवारिक आय दर्ज करें।",
+      academic: "चरण 3: शैक्षणिक एवं संस्थान विवरण",
+      academicDesc: "अपने वर्तमान विश्वविद्यालय/संस्थान और पाठ्यक्रम की जानकारी दें।",
+      documents: "चरण 4: आवश्यक दस्तावेज चेकलिस्ट",
+      documentsDesc: "आवेदन जमा करने से पहले सुनिश्चित करें कि आपके पास इन सभी प्रमाण पत्रों की साफ प्रति है।",
+      review: "चरण 5: समीक्षा एवं अंतिम सबमिशन",
+      reviewDesc: "अपने दर्ज विवरणों की जांच करें। सभी फ़ील्ड की नियमों के अनुसार जांच की जाएगी।",
     },
   },
 };
@@ -207,18 +148,104 @@ const TRANSLATIONS: Record<Language, Translation> = {
 export function AssistedApplicationMode({
   schemeName,
   schemeCode,
+  formFields,
+  requiredDocs = [],
   formData,
   onUpdateField,
   onSubmit,
   isSubmitting,
   onClose,
+  submitError,
 }: AssistedModeProps) {
   const [lang, setLang] = useState<Language>("en");
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [declarationChecked, setDeclarationChecked] = useState<boolean>(false);
+  const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
   const t = TRANSLATIONS[lang];
+
+  // Dynamically partition formFields into 3 logical data steps so NO field is ever skipped:
+  // Step 1: Personal (name, email, phone, gender, dob, etc.)
+  // Step 2: Eligibility & Demographics (category, is_st, age, annual_income, state, district, disability, pvtg, etc.)
+  // Step 3: Academic / Institutional (university, institution, qualification, course, percentage, admission, etc.)
+  const { personalFields, eligibilityFields, academicFields } = useMemo(() => {
+    const personalKeys = new Set([
+      "applicant_name", "name", "full_name",
+      "applicant_email", "email",
+      "applicant_phone", "phone", "mobile",
+      "gender", "dob", "date_of_birth", "aadhaar"
+    ]);
+
+    const eligibilityKeys = new Set([
+      "category", "is_st", "social_category", "sub_caste",
+      "age", "annual_income", "family_income", "income",
+      "state", "district", "domicile", "domicile_state",
+      "disability", "is_disabled", "pwd", "pwd_percentage",
+      "vulnerable_group", "pvtg", "minority"
+    ]);
+
+    const academicKeys = new Set([
+      "university", "institution", "institution_name", "institute", "college",
+      "qualification", "highest_qualification", "degree",
+      "course", "course_or_degree", "course_level", "department",
+      "percentage", "qualifying_marks", "marks", "cgpa", "grade",
+      "admission_confirmed", "is_admission_confirmed", "admission_letter",
+      "enrollment_number", "roll_number", "passing_year", "year_of_passing"
+    ]);
+
+    const pFields: RenderableField[] = [];
+    const eFields: RenderableField[] = [];
+    const aFields: RenderableField[] = [];
+
+    for (const f of formFields) {
+      const k = f.key.toLowerCase();
+      if (personalKeys.has(k) || k.startsWith("applicant_")) {
+        pFields.push(f);
+      } else if (eligibilityKeys.has(k) || k.includes("income") || k.includes("category") || k.includes("caste") || k.includes("age") || k.includes("state") || k.includes("district")) {
+        eFields.push(f);
+      } else if (academicKeys.has(k) || k.includes("uni") || k.includes("degree") || k.includes("marks") || k.includes("admission") || k.includes("course") || k.includes("percentage") || k.includes("qualification")) {
+        aFields.push(f);
+      } else {
+        // Fallback: put in eligibility if short demographic, else academic
+        if (f.type === "number" || f.type === "boolean") {
+          eFields.push(f);
+        } else {
+          aFields.push(f);
+        }
+      }
+    }
+
+    // Ensure we always have primary contact fields represented
+    if (pFields.length === 0) {
+      pFields.push(
+        { key: "applicant_name", label: "Full Name", type: "text", required: true, placeholder: "e.g. Birsa Munda" },
+        { key: "applicant_email", label: "Email Address", type: "email", required: true, placeholder: "applicant@example.com" },
+        { key: "applicant_phone", label: "Phone Number", type: "text", required: true, placeholder: "9876543210" },
+      );
+    }
+
+    return { personalFields: pFields, eligibilityFields: eFields, academicFields: aFields };
+  }, [formFields]);
+
+  // Find missing required fields across the entire form
+  const missingRequiredFields = useMemo(() => {
+    const missing: { field: RenderableField; step: number }[] = [];
+
+    const checkField = (f: RenderableField, step: number) => {
+      if (!f.required) return;
+      const v = formData[f.key];
+      if (v === undefined || v === null || String(v).trim() === "") {
+        missing.push({ field: f, step });
+      }
+    };
+
+    personalFields.forEach((f) => checkField(f, 1));
+    eligibilityFields.forEach((f) => checkField(f, 2));
+    academicFields.forEach((f) => checkField(f, 3));
+
+    return missing;
+  }, [personalFields, eligibilityFields, academicFields, formData]);
 
   // Save draft to localStorage
   const handleSaveDraft = () => {
@@ -231,18 +258,94 @@ export function AssistedApplicationMode({
     }
   };
 
-  // Check for existing draft on mount
+  // Restore draft on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`ys_draft_${schemeCode}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         Object.entries(parsed).forEach(([k, v]) => {
-          if (!formData[k]) onUpdateField(k, v);
+          if (formData[k] === undefined || formData[k] === "") onUpdateField(k, v);
         });
       }
     } catch (e) {}
   }, []);
+
+  const handleNextStep = () => {
+    setCurrentStep((s) => Math.min(s + 1, 5));
+  };
+
+  const handlePrevStep = () => {
+    setCurrentStep((s) => Math.max(s - 1, 1));
+  };
+
+  // Render a dynamic form field input cleanly
+  const renderFieldInput = (f: RenderableField) => {
+    const val = formData[f.key] ?? "";
+
+    if (f.type === "select" && f.options && f.options.length > 0) {
+      return (
+        <select
+          value={String(val)}
+          onChange={(e) => onUpdateField(f.key, e.target.value)}
+          className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36] bg-white text-stone-900"
+        >
+          <option value="">-- Select {f.label} --</option>
+          {f.options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      );
+    }
+
+    if (f.type === "boolean") {
+      return (
+        <label className="flex items-center gap-2 p-2.5 rounded-lg border border-stone-200 bg-stone-50 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={Boolean(val)}
+            onChange={(e) => onUpdateField(f.key, e.target.checked)}
+            className="w-4 h-4 text-[#de5c36] rounded"
+          />
+          <span className="text-xs font-semibold text-stone-800">
+            {val ? "Yes / Confirmed" : "No / Not Applicable"}
+          </span>
+        </label>
+      );
+    }
+
+    if (f.type === "textarea") {
+      return (
+        <textarea
+          rows={3}
+          value={String(val)}
+          onChange={(e) => onUpdateField(f.key, e.target.value)}
+          placeholder={f.placeholder || `Enter ${f.label}`}
+          className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
+        />
+      );
+    }
+
+    return (
+      <input
+        type={f.type === "number" ? "number" : f.type === "email" ? "email" : f.type === "date" ? "date" : "text"}
+        step={f.type === "number" ? "any" : undefined}
+        value={val}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (f.type === "number") {
+            onUpdateField(f.key, v === "" ? "" : Number(v));
+          } else {
+            onUpdateField(f.key, v);
+          }
+        }}
+        placeholder={f.placeholder || `e.g. ${f.label}`}
+        className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
+      />
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
@@ -274,6 +377,7 @@ export function AssistedApplicationMode({
               type="button"
               onClick={onClose}
               className="p-1 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
@@ -301,196 +405,108 @@ export function AssistedApplicationMode({
           </button>
         </div>
 
-        {/* Wizard Step Body */}
+        {/* Step Body */}
         <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs">
           {/* STEP 1: Personal Details */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 space-y-1">
-                <h3 className="font-bold text-stone-900 text-sm">{t.steps.personal.title}</h3>
-                <p className="text-stone-600">{t.steps.personal.desc}</p>
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                <h3 className="font-bold text-stone-900 text-sm">{t.stepNames.personal}</h3>
+                <p className="text-stone-600">{t.stepNames.personalDesc}</p>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.personal.nameLabel} *</label>
-                  <input
-                    type="text"
-                    value={formData.applicant_name || ""}
-                    onChange={(e) => onUpdateField("applicant_name", e.target.value)}
-                    placeholder="e.g. Birsa Munda"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                  <span className="text-[10px] text-stone-500 block mt-0.5">{t.steps.personal.nameHint}</span>
-                </div>
-
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.personal.emailLabel} *</label>
-                  <input
-                    type="email"
-                    value={formData.applicant_email || ""}
-                    onChange={(e) => onUpdateField("applicant_email", e.target.value)}
-                    placeholder="birsa@example.com"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.personal.phoneLabel} *</label>
-                  <input
-                    type="tel"
-                    value={formData.applicant_phone || ""}
-                    onChange={(e) => onUpdateField("applicant_phone", e.target.value)}
-                    placeholder="9876543210"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                  <span className="text-[10px] text-stone-500 block mt-0.5">{t.steps.personal.phoneHint}</span>
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {personalFields.map((f) => (
+                  <div key={f.key} className={f.type === "textarea" ? "sm:col-span-2" : ""}>
+                    <label className="font-bold text-stone-800 block mb-1">
+                      {f.label} {f.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    {renderFieldInput(f)}
+                    {f.helpText && <span className="text-[10px] text-stone-500 block mt-0.5">{f.helpText}</span>}
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* STEP 2: ST Category & Income */}
+          {/* STEP 2: Eligibility & Demographics */}
           {currentStep === 2 && (
             <div className="space-y-4">
-              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 space-y-1">
-                <h3 className="font-bold text-stone-900 text-sm">{t.steps.category.title}</h3>
-                <p className="text-stone-600">{t.steps.category.desc}</p>
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                <h3 className="font-bold text-stone-900 text-sm">{t.stepNames.eligibility}</h3>
+                <p className="text-stone-600">{t.stepNames.eligibilityDesc}</p>
               </div>
 
-              <div className="space-y-3">
-                <label className="flex items-start gap-2.5 p-3 rounded-lg border border-stone-300 bg-amber-50/50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.category === "ST" || formData.is_st === true}
-                    onChange={(e) => {
-                      onUpdateField("category", e.target.checked ? "ST" : "");
-                      onUpdateField("is_st", e.target.checked);
-                    }}
-                    className="mt-0.5 w-4 h-4 text-[#de5c36] rounded"
-                  />
-                  <div>
-                    <span className="font-bold text-stone-900 block">{t.steps.category.stConfirmLabel}</span>
-                    <span className="text-[10px] text-stone-600">{t.steps.category.stConfirmDesc}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {eligibilityFields.map((f) => (
+                  <div key={f.key} className={f.type === "textarea" ? "sm:col-span-2" : ""}>
+                    <label className="font-bold text-stone-800 block mb-1">
+                      {f.label} {f.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    {renderFieldInput(f)}
+                    {f.helpText && <span className="text-[10px] text-stone-500 block mt-0.5">{f.helpText}</span>}
                   </div>
-                </label>
-
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.category.incomeLabel} *</label>
-                  <input
-                    type="number"
-                    value={formData.annual_income || ""}
-                    onChange={(e) => onUpdateField("annual_income", e.target.value ? Number(e.target.value) : "")}
-                    placeholder="e.g. 250000"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                  <span className="text-[10px] text-stone-500 block mt-0.5">{t.steps.category.incomeHint}</span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-stone-800 block mb-1">{t.steps.category.stateLabel} *</label>
-                    <input
-                      type="text"
-                      value={formData.state || ""}
-                      onChange={(e) => onUpdateField("state", e.target.value)}
-                      placeholder="e.g. Jharkhand"
-                      className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-stone-800 block mb-1">{t.steps.category.districtLabel} *</label>
-                    <input
-                      type="text"
-                      value={formData.district || ""}
-                      onChange={(e) => onUpdateField("district", e.target.value)}
-                      placeholder="e.g. Ranchi"
-                      className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* STEP 3: Academic Details */}
+          {/* STEP 3: Academic / Institutional */}
           {currentStep === 3 && (
             <div className="space-y-4">
-              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 space-y-1">
-                <h3 className="font-bold text-stone-900 text-sm">{t.steps.academic.title}</h3>
-                <p className="text-stone-600">{t.steps.academic.desc}</p>
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                <h3 className="font-bold text-stone-900 text-sm">{t.stepNames.academic}</h3>
+                <p className="text-stone-600">{t.stepNames.academicDesc}</p>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.academic.institutionLabel} *</label>
-                  <input
-                    type="text"
-                    value={formData.institution_name || ""}
-                    onChange={(e) => onUpdateField("institution_name", e.target.value)}
-                    placeholder="e.g. Ranchi University / IIT Delhi"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.academic.courseLabel} *</label>
-                  <input
-                    type="text"
-                    value={formData.course_or_degree || ""}
-                    onChange={(e) => onUpdateField("course_or_degree", e.target.value)}
-                    placeholder="Ph.D in Tribal Studies"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-stone-800 block mb-1">{t.steps.academic.marksLabel}</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.qualifying_marks || ""}
-                    onChange={(e) => onUpdateField("qualifying_marks", e.target.value ? Number(e.target.value) : "")}
-                    placeholder="78.5"
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-[#de5c36]"
-                  />
-                </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {academicFields.map((f) => (
+                  <div key={f.key} className={f.type === "textarea" ? "sm:col-span-2" : ""}>
+                    <label className="font-bold text-stone-800 block mb-1">
+                      {f.label} {f.required && <span className="text-rose-500">*</span>}
+                    </label>
+                    {renderFieldInput(f)}
+                    {f.helpText && <span className="text-[10px] text-stone-500 block mt-0.5">{f.helpText}</span>}
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
-          {/* STEP 4: Document Checklist & Guidelines */}
+          {/* STEP 4: Documents Checklist */}
           {currentStep === 4 && (
             <div className="space-y-4">
-              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 space-y-1">
-                <h3 className="font-bold text-stone-900 text-sm">{t.steps.documents.title}</h3>
-                <p className="text-stone-600">{t.steps.documents.desc}</p>
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                <h3 className="font-bold text-stone-900 text-sm">{t.stepNames.documents}</h3>
+                <p className="text-stone-600">{t.stepNames.documentsDesc}</p>
               </div>
 
-              <div className="space-y-3">
-                <div className="bg-white p-3 rounded-lg border border-stone-200 space-y-1">
-                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    {t.steps.documents.doc1}
+              <div className="space-y-2.5">
+                {requiredDocs.length > 0 ? (
+                  requiredDocs.map((doc, idx) => (
+                    <div key={doc.doc_type || idx} className="bg-white p-3.5 rounded-xl border border-stone-200 space-y-1">
+                      <div className="font-bold text-stone-900 flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          {idx + 1}. {doc.label || doc.doc_type}
+                        </span>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${doc.required !== false ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-stone-100 text-stone-600 border-stone-200"}`}>
+                          {doc.required !== false ? "Required" : "Optional"}
+                        </span>
+                      </div>
+                      {doc.description && <p className="text-[11px] text-stone-600 ml-5">{doc.description}</p>}
+                      {doc.accepted_formats && (
+                        <p className="text-[10px] text-stone-400 ml-5 font-mono">
+                          Formats: {doc.accepted_formats.join(", ").toUpperCase()}
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="bg-white p-4 rounded-xl border border-stone-200 text-stone-600">
+                    <p>Standard documents required: Caste Certificate (ST), Current Year Income Proof, University Enrollment/Admission Confirmation.</p>
                   </div>
-                  <p className="text-[11px] text-stone-600 ml-5">{t.steps.documents.doc1Example}</p>
-                </div>
-
-                <div className="bg-white p-3 rounded-lg border border-stone-200 space-y-1">
-                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    {t.steps.documents.doc2}
-                  </div>
-                  <p className="text-[11px] text-stone-600 ml-5">{t.steps.documents.doc2Example}</p>
-                </div>
-
-                <div className="bg-white p-3 rounded-lg border border-stone-200 space-y-1">
-                  <div className="font-bold text-stone-900 flex items-center gap-1.5 text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    {t.steps.documents.doc3}
-                  </div>
-                  <p className="text-[11px] text-stone-600 ml-5">{t.steps.documents.doc3Example}</p>
-                </div>
+                )}
               </div>
             </div>
           )}
@@ -498,33 +514,63 @@ export function AssistedApplicationMode({
           {/* STEP 5: Review & Submit */}
           {currentStep === 5 && (
             <div className="space-y-4">
-              <div className="bg-stone-50 p-3 rounded-lg border border-stone-200 space-y-1">
-                <h3 className="font-bold text-stone-900 text-sm">{t.steps.review.title}</h3>
-                <p className="text-stone-600">{t.steps.review.desc}</p>
+              <div className="bg-stone-50 p-3.5 rounded-xl border border-stone-200 space-y-1">
+                <h3 className="font-bold text-stone-900 text-sm">{t.reviewTitle}</h3>
+                <p className="text-stone-600">{t.reviewDesc}</p>
               </div>
 
-              <div className="bg-white rounded-lg border border-stone-200 p-3.5 space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase">Applicant Name:</span>
-                    <span className="font-bold text-stone-900">{formData.applicant_name || "N/A"}</span>
+              {/* Incomplete Fields Warning */}
+              {missingRequiredFields.length > 0 && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-rose-800 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    {t.missingFieldsWarning}
                   </div>
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase">Declared Category:</span>
-                    <span className="font-bold text-stone-900">{formData.category || "ST"}</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {missingRequiredFields.map(({ field, step }) => (
+                      <button
+                        key={field.key}
+                        type="button"
+                        onClick={() => setCurrentStep(step)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-rose-300 rounded text-[11px] font-bold text-rose-700 hover:bg-rose-100 transition shadow-2xs"
+                      >
+                        {field.label} &rarr; <span className="underline">{t.fixField} {step}</span>
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase">Annual Income:</span>
-                    <span className="font-bold text-stone-900">₹{Number(formData.annual_income || 0).toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-500 block text-[10px] uppercase">State / District:</span>
-                    <span className="font-bold text-stone-900">{formData.district || "N/A"}, {formData.state || "N/A"}</span>
-                  </div>
+                </div>
+              )}
+
+              {/* Complete Declaration Overview */}
+              <div className="bg-white rounded-xl border border-stone-200 p-4 space-y-3">
+                <h4 className="font-bold text-stone-800 text-xs uppercase tracking-wide border-b border-stone-100 pb-2">
+                  Declared Application Values
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                  {formFields.map((f) => {
+                    const val = formData[f.key];
+                    const hasVal = val !== undefined && val !== null && String(val).trim() !== "";
+                    return (
+                      <div key={f.key} className="p-2 rounded bg-stone-50 border border-stone-100">
+                        <span className="text-stone-500 block text-[10px] font-semibold uppercase">{f.label}</span>
+                        <span className={`font-bold block truncate ${hasVal ? "text-stone-900" : "text-rose-500 italic"}`}>
+                          {hasVal ? (typeof val === "boolean" ? (val ? "Yes" : "No") : String(val)) : "Not Provided"}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <label className="flex items-start gap-2.5 p-3 rounded-lg border border-stone-300 bg-stone-50 cursor-pointer">
+              {submitError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                  <span>{submitError}</span>
+                </div>
+              )}
+
+              {/* Legal Declaration */}
+              <label className="flex items-start gap-2.5 p-3 rounded-xl border border-stone-300 bg-stone-50 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={declarationChecked}
@@ -532,19 +578,19 @@ export function AssistedApplicationMode({
                   className="mt-0.5 w-4 h-4 text-[#de5c36] rounded"
                 />
                 <span className="text-[11px] text-stone-700 leading-relaxed font-medium">
-                  {t.steps.review.confirmMsg}
+                  {t.declaration}
                 </span>
               </label>
             </div>
           )}
         </div>
 
-        {/* Footer Navigation Buttons */}
+        {/* Footer Navigation */}
         <div className="bg-stone-50 border-t border-stone-200 p-4 flex items-center justify-between">
           {currentStep > 1 ? (
             <button
               type="button"
-              onClick={() => setCurrentStep((s) => s - 1)}
+              onClick={handlePrevStep}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -557,7 +603,7 @@ export function AssistedApplicationMode({
           {currentStep < 5 ? (
             <button
               type="button"
-              onClick={() => setCurrentStep((s) => s + 1)}
+              onClick={handleNextStep}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#de5c36] hover:bg-[#c4502f] text-white text-xs font-bold transition shadow-sm"
             >
               {t.next}
@@ -567,8 +613,8 @@ export function AssistedApplicationMode({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={isSubmitting || !declarationChecked}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition shadow-sm disabled:opacity-50"
+              disabled={isSubmitting || !declarationChecked || missingRequiredFields.length > 0}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? t.submitting : t.submit}
             </button>

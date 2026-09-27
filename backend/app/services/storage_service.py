@@ -139,12 +139,13 @@ class StorageService:
         key: str,
         expires_seconds: int = 3600,
     ) -> str:
-        """Generate a presigned URL for downloading a file."""
-        resolved_key = self.resolve_key(key)
+        """Generate a presigned URL for downloading a file (local crypto signing, zero network latency)."""
+        if not key:
+            return ""
         try:
             url = self._client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": self._bucket, "Key": resolved_key},
+                Params={"Bucket": self._bucket, "Key": key},
                 ExpiresIn=expires_seconds,
             )
             return url

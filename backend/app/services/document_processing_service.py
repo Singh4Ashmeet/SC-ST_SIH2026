@@ -21,13 +21,14 @@ from app.services.scheme_config_validator import validate_scheme_config
 logger = logging.getLogger(__name__)
 
 
-def process_document(db: Session, document_id: uuid.UUID) -> Dict[str, Any]:
+def process_document(db: Session, document_id: uuid.UUID, file_bytes: Optional[bytes] = None) -> Dict[str, Any]:
     """
-    Process a document: download, OCR, extract fields, check deficiencies, and save results.
+    Process a document: download if needed, OCR, extract fields, check deficiencies, and save results.
 
     Args:
         db: Database session
         document_id: UUID of the document to process
+        file_bytes: Optional in-memory bytes of the file (skips redundant download)
 
     Returns:
         Dictionary with extracted_fields and any error info
@@ -38,20 +39,23 @@ def process_document(db: Session, document_id: uuid.UUID) -> Dict[str, Any]:
         logger.error(f"Document not found: {document_id}")
         return {"error": "Document not found", "extracted_fields": {}}
 
-    # Download file from storage
-    try:
-        file_bytes = storage_service.download_file(document.storage_key)
-        if not file_bytes:
-            logger.warning(f"Empty file downloaded for document {document_id}")
-            return {"error": "Empty file", "extracted_fields": {}}
-    except Exception as e:
-        logger.error(f"Failed to download file for document {document_id}: {e}")
-        return {"error": f"Failed to download file: {e}", "extracted_fields": {}}
+    # Download file from storage only if not already provided in memory
+    if file_bytes is None:
+        try:
+            file_bytes = storage_service.download_file(document.storage_key)
+            if not file_bytes:
+                logger.warning(f"Empty file downloaded for document {document_id}")
+                return {"error": "Empty file", "extracted_fields": {}}
+        except Exception as e:
+            logger.error(f"Failed to download file for document {document_id}: {e}")
+            return {"error": f"Failed to download file: {e}", "extracted_fields": {}}
 
     # Extract text via OCR
     try:
         raw_text = extract_text(file_bytes, document.content_type or "application/octet-stream")
-        if not raw_text.strip():
+        # Sanitize to strictly eliminate any null byte escape sequences that break PostgreSQL JSONB
+        raw_text = raw_text.replace("\x00", "").replace("\u0000", "").strip()
+        if not raw_text:
             logger.warning(f"OCR returned empty text for document {document_id}")
     except Exception as e:
         logger.error(f"OCR failed for document {document_id}: {e}")
@@ -64,12 +68,30 @@ def process_document(db: Session, document_id: uuid.UUID) -> Dict[str, Any]:
         logger.error(f"Field extraction failed for document {document_id}: {e}")
         extracted = {}
 
+    # Run Deep Learning Visual Document Classification (EfficientNet-B0 document_classifier_final.pt)
+    try:
+        from app.services.document_classifier_service import get_document_classifier_service
+        classifier_svc = get_document_classifier_service()
+        doc_classification = classifier_svc.classify_document(
+            file_bytes=file_bytes,
+            content_type=document.content_type or "application/pdf",
+            claimed_doc_type=document.doc_type
+        )
+    except Exception as e:
+        logger.warning(f"Document visual classification failed for {document_id}: {e}")
+        doc_classification = {
+            "model_name": "EfficientNet-B0 (document_classifier_final.pt)",
+            "status": "UNAVAILABLE",
+            "is_match_with_claimed_type": True,
+        }
+
     # Save results to document
-    # Store raw_text in extracted_fields under _raw_text key
+    # Store raw_text in extracted_fields under _raw_text key and visual classification under _doc_classification
     if document.extracted_fields is None:
         document.extracted_fields = {}
 
     document.extracted_fields["_raw_text"] = raw_text
+    document.extracted_fields["_doc_classification"] = doc_classification
     document.extracted_fields.update(extracted)
 
 # Run deficiency check

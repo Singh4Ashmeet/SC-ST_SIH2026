@@ -226,11 +226,14 @@ export default function ApplicationFormPage() {
         <AssistedApplicationMode
           schemeName={scheme.name}
           schemeCode={scheme.code}
+          formFields={formFields}
+          requiredDocs={scheme.config?.required_documents ?? []}
           formData={formData}
           onUpdateField={handleChange}
           onSubmit={() => handleSubmit()}
           isSubmitting={isSubmitting}
           onClose={() => setShowAssistedMode(false)}
+          submitError={submitError}
         />
       )}
 

@@ -220,6 +220,27 @@ class WorkflowEngine:
         from_state = application.current_state
         application.current_state = new_state
 
+        # Dynamically assign the responsible role and timestamp for the new lifecycle stage
+        role_map = {
+            "submitted": "SYSTEM_EVALUATOR",
+            "eligibility_check": "SYSTEM_EVALUATOR",
+            "document_scrutiny": "SCRUTINY_OFFICER",
+            "deficient": "APPLICANT",
+            "resubmitted": "SCRUTINY_OFFICER",
+            "institute_verification": "INSTITUTE_VERIFIER",
+            "pending_selection": "SELECTION_COMMITTEE",
+            "selection": "SELECTION_COMMITTEE",
+            "committee_review": "SELECTION_COMMITTEE",
+            "approved": "SCHEME_ADMIN",
+            "fellowship_awarded": "SCHEME_ADMIN",
+            "disbursed": "SCHOLAR_ACTIVE",
+            "rejected": "CLOSED",
+            "ineligible": "CLOSED",
+        }
+        application.current_responsible_role = role_map.get(new_state.lower(), "OFFICER")
+        from datetime import datetime, timezone
+        application.stage_entry_time = datetime.now(timezone.utc)
+
         # Create audit log with cryptographic hash chain
         from app.services.audit_service import create_audit_log
         create_audit_log(

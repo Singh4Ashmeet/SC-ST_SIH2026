@@ -11,6 +11,7 @@ import {
 import {
   ArrowLeft, Loader2, AlertCircle, CheckCircle2, XCircle, Upload, FileText, Clock, Shield, Info, X, Sparkles,
 } from "lucide-react";
+import { DecisionPassportView } from "@/components/decision-passport-view";
 
 const STATE_MESSAGES: Record<string, { label: string; description: string; color: string }> = {
   submitted: { label: "Application Submitted", description: "Your application is queued for automated eligibility evaluation.", color: "text-blue-600" },
@@ -32,6 +33,7 @@ export default function ApplicationStatusPage() {
   const [resubmitFile, setResubmitFile] = useState<File | null>(null);
   const [isResubmitting, setIsResubmitting] = useState(false);
   const [resubmitError, setResubmitError] = useState<string | null>(null);
+  const [showPassportModal, setShowPassportModal] = useState<boolean>(false);
 
   const { data: application, isLoading: appLoading, mutate: mutateApp } = useSWR<ApplicationRead>(
     applicationId ? `/api/applications/${applicationId}` : null,
@@ -99,13 +101,45 @@ export default function ApplicationStatusPage() {
         <Link href="/apply" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-900">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Schemes
         </Link>
-        <Link
-          href={`/dashboard/applications/${applicationId}/decision-passport`}
+        <button
+          type="button"
+          onClick={() => setShowPassportModal(true)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs shadow-sm transition"
         >
-          <Sparkles className="w-3.5 h-3.5" /> View Official Decision Passport
-        </Link>
+          <Sparkles className="w-3.5 h-3.5" />
+          {["approved", "rejected", "disbursed", "selection"].includes(currentState)
+            ? "View Official Decision Passport"
+            : "View Evidence & Audit Passport"}
+        </button>
       </div>
+
+      {/* Applicant Decision Passport Modal */}
+      {showPassportModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+          <div className="bg-stone-50 rounded-2xl shadow-2xl max-w-5xl w-full border border-stone-200 overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="bg-stone-900 px-5 py-3.5 text-white flex items-center justify-between border-b border-stone-800">
+              <div className="flex items-center gap-2">
+                <span className="bg-[#de5c36] text-white px-2 py-0.5 rounded font-black text-[10px] uppercase flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" /> APPLICANT TRANSPARENCY RECORD
+                </span>
+                <span className="text-xs text-stone-300 font-mono">
+                  Application: {applicationId.slice(0, 14)}...
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPassportModal(false)}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition flex items-center gap-1 text-xs font-bold"
+              >
+                <X className="w-4 h-4" /> Close
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+              <DecisionPassportView applicationId={applicationId} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Banner */}
       <div className={`rounded-xl p-6 border shadow-sm ${

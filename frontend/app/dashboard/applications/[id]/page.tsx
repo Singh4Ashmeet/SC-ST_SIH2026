@@ -12,6 +12,7 @@ import {
   resolveConflict,
   getDecisionTrace,
   replayDecision,
+  verifyInstitute,
   type CaseFileData,
   type DecisionTraceResponse,
 } from "@/lib/api";
@@ -23,6 +24,7 @@ import {
   Mail,
   Phone,
   Calendar,
+  CreditCard,
   Layers,
   FileCheck2,
   AlertCircle,
@@ -84,10 +86,31 @@ export default function ApplicationCaseFilePage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const { data: caseFile, isLoading, error } = useSWR<CaseFileData>(
+  const { data: caseFile, isLoading, error, mutate: mutateCase } = useSWR<CaseFileData>(
     id ? `/api/applications/${id}/case-file` : null,
     () => getCaseFile(id)
   );
+
+  const [instituteRemarks, setInstituteRemarks] = useState("");
+  const [isVerifyingInstitute, setIsVerifyingInstitute] = useState(false);
+
+  const handleInstituteDecision = async (decision: "VERIFIED" | "QUERY_RAISED" | "REJECTED") => {
+    setIsVerifyingInstitute(true);
+    setActionFeedback(null);
+    try {
+      const res = await verifyInstitute(id, {
+        decision,
+        remarks: instituteRemarks.trim() || undefined,
+      });
+      setActionFeedback(`Institutional validation recorded: ${decision}. Application pipeline updated.`);
+      setInstituteRemarks("");
+      await mutateCase();
+    } catch (err: any) {
+      setActionFeedback(`Verification failed: ${err?.message || "Unknown error"}`);
+    } finally {
+      setIsVerifyingInstitute(false);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<
     "overview" | "passport" | "eligibility" | "documents" | "conflict" | "merit" | "institute" | "grievances" | "audit"
@@ -95,7 +118,6 @@ export default function ApplicationCaseFilePage() {
 
   // Document Viewer Modal State
   const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
-  const [docPreviewMode, setDocPreviewMode] = useState<"pdf" | "digital">("pdf");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
@@ -249,6 +271,36 @@ export default function ApplicationCaseFilePage() {
             </button>
           ))}
 
+          {["approved", "fellowship_awarded", "disbursed"].includes(application.current_state.toLowerCase()) && (
+            <Link
+              href={`/dashboard/applications/${id}/post-selection`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              Manage PFMS Disbursals
+            </Link>
+          )}
+
+          {["selection", "pending_selection", "committee_review"].includes(application.current_state.toLowerCase()) && (
+            <Link
+              href={`/dashboard/selection/${id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition"
+            >
+              <Award className="w-3.5 h-3.5" />
+              Selection Committee Review
+            </Link>
+          )}
+
+          {["document_scrutiny", "deficient", "resubmitted"].includes(application.current_state.toLowerCase()) && (
+            <Link
+              href={`/dashboard/scrutiny/${id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-stone-900 hover:bg-stone-800 text-white rounded-lg shadow-sm transition"
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              Officer Scrutiny Workbench
+            </Link>
+          )}
+
           {(application.current_state === "document_scrutiny" || application.current_state === "submitted") && (
             <button
               onClick={handleRunFullScrutiny}
@@ -348,11 +400,20 @@ export default function ApplicationCaseFilePage() {
 
             <div className="bg-stone-800/90 border border-stone-700 p-3 rounded-lg text-right space-y-1">
               <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Current Responsible Role</div>
-              <div className="text-xs font-bold text-white uppercase">{application.current_responsible_role || user?.role?.replace(/_/g, " ") || "Officer"}</div>
-              <div className={`flex items-center justify-end gap-1.5 text-[11px] font-mono pt-0.5 ${caseFile.sla?.is_breached ? "text-rose-400 font-bold animate-pulse" : "text-amber-300"}`}>
-                <Clock className="w-3 h-3" />
-                <span>SLA: {caseFile.sla?.formatted_status || "18h 42m remaining"}</span>
+              <div className="text-xs font-bold text-white uppercase tracking-wide">
+                {caseFile.case_decision_summary?.current_responsible_role || application.current_responsible_role || "Officer"}
               </div>
+              {caseFile.sla?.is_completed ? (
+                <div className="flex items-center justify-end gap-1.5 text-[11px] font-mono pt-0.5 text-emerald-400 font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{caseFile.sla.formatted_status}</span>
+                </div>
+              ) : (
+                <div className={`flex items-center justify-end gap-1.5 text-[11px] font-mono pt-0.5 ${caseFile.sla?.is_breached ? "text-rose-400 font-bold animate-pulse" : "text-amber-300"}`}>
+                  <Clock className="w-3 h-3" />
+                  <span>SLA: {caseFile.sla?.formatted_status || "48h remaining"}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -396,36 +457,41 @@ export default function ApplicationCaseFilePage() {
       </div>
 
       {/* ── CASE FILE NAVIGATION TABS ── */}
-      <div className="border-b border-stone-200 flex items-center gap-2 overflow-x-auto pb-0.5 text-xs font-bold">
-        {[
-          { key: "overview", label: "Applicant & Academic", icon: User },
-          { key: "passport", label: "Decision Passport ⭐", icon: Sparkles },
-          { key: "eligibility", label: `Eligibility (${eligibility_result?.passed ? "PASS" : "FAIL"})`, icon: FileCheck2 },
-          { key: "documents", label: `Documents (${documents.length})`, icon: Cpu },
-          { key: "conflict", label: `Cross-Scheme Conflict ${conflict ? "⚠️" : "✓"}`, icon: Shield },
-          { key: "merit", label: "Merit Score", icon: Award },
-          { key: "institute", label: "Institute Verification", icon: Building2 },
-          { key: "grievances", label: `Grievances (${grievances.length})`, icon: MessageSquareWarning },
-          { key: "audit", label: `Audit Trail (${audit_logs.length})`, icon: History },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg transition border-b-2 font-semibold ${
-                isActive
-                  ? "border-[#de5c36] bg-white text-[#de5c36] shadow-sm"
-                  : "border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100/60"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {(() => {
+        const isEligible = eligibility_result?.passed ?? (caseFile.case_decision_summary?.eligibility_status === "PASS" || (decisionTrace?.decision_trace?.length ? decisionTrace.decision_trace.every((t: any) => t.status === "PASS") : false));
+        return (
+          <div className="border-b border-stone-200 flex items-center gap-2 overflow-x-auto pb-0.5 text-xs font-bold">
+            {[
+              { key: "overview", label: "Applicant & Academic", icon: User },
+              { key: "passport", label: "Decision Passport ⭐", icon: Sparkles },
+              { key: "eligibility", label: `Eligibility (${isEligible ? "PASS" : "FAIL"})`, icon: FileCheck2 },
+              { key: "documents", label: `Documents (${documents.length})`, icon: Cpu },
+              { key: "conflict", label: `Cross-Scheme Conflict ${conflict ? "⚠️" : "✓"}`, icon: Shield },
+              { key: "merit", label: "Merit Score", icon: Award },
+              { key: "institute", label: "Institute Verification", icon: Building2 },
+              { key: "grievances", label: `Grievances (${grievances.length})`, icon: MessageSquareWarning },
+              { key: "audit", label: `Audit Trail (${audit_logs.length})`, icon: History },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg transition border-b-2 font-semibold ${
+                    isActive
+                      ? "border-[#de5c36] bg-white text-[#de5c36] shadow-sm"
+                      : "border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100/60"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ── TAB CONTENTS ── */}
 
@@ -436,74 +502,124 @@ export default function ApplicationCaseFilePage() {
 
       {/* TAB 1: OVERVIEW & APPLICANT DETAILS */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-2">
-              <User className="w-4 h-4 text-[#de5c36]" /> Personal &amp; Contact Details
-            </h3>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-stone-500 block">Full Name</span>
-                <span className="font-bold text-stone-900">{application.applicant_name}</span>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-2">
+                <User className="w-4 h-4 text-[#de5c36]" /> Personal &amp; Contact Details
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-stone-500 block">Full Name</span>
+                  <span className="font-bold text-stone-900">{String(application.applicant_name || applicantData.applicant_name || applicantData.name || "N/A")}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Email Address</span>
+                  <span className="font-medium text-stone-900">{String(application.applicant_email || applicantData.applicant_email || applicantData.email || "N/A")}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Phone</span>
+                  <span className="font-medium text-stone-900">{String(application.applicant_phone || applicantData.applicant_phone || applicantData.phone || "N/A")}</span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Category</span>
+                  <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {String(applicantData.category || (applicantData.is_st ? "ST" : "Scheduled Tribe (ST)"))}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Date of Birth / Age</span>
+                  <span className="font-medium text-stone-900">
+                    {applicantData.dob || applicantData.date_of_birth
+                      ? `${applicantData.dob || applicantData.date_of_birth}${applicantData.age ? ` (${applicantData.age} yrs)` : ""}`
+                      : (applicantData.age ? `${applicantData.age} Years` : "N/A")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Annual Family Income</span>
+                  <span className="font-bold text-stone-900">
+                    {typeof applicantData.annual_income === "number"
+                      ? `₹${applicantData.annual_income.toLocaleString("en-IN")}`
+                      : (applicantData.annual_income ? `₹${Number(applicantData.annual_income).toLocaleString("en-IN")}` : "N/A")}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-stone-500 block">Email Address</span>
-                <span className="font-medium text-stone-900">{application.applicant_email}</span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Phone</span>
-                <span className="font-medium text-stone-900">{application.applicant_phone || "N/A"}</span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Category</span>
-                <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {typeof applicantData.category === "string" ? applicantData.category : "Scheduled Tribe (ST)"}
-                </span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Date of Birth</span>
-                <span className="font-medium text-stone-900">
-                  {typeof applicantData.dob === "string" ? applicantData.dob : (typeof applicantData.date_of_birth === "string" ? applicantData.date_of_birth : "18/07/1999")}
-                </span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Annual Family Income</span>
-                <span className="font-bold text-stone-900">
-                  ₹{typeof applicantData.annual_income === "number" ? applicantData.annual_income.toLocaleString("en-IN") : String(applicantData.annual_income || "3,80,000")}
-                </span>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-2">
+                <GraduationCap className="w-4 h-4 text-purple-600" /> Academic &amp; Programme Info
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-stone-500 block">Institution</span>
+                  <span className="font-bold text-stone-900">
+                    {String(applicantData.institution_name || applicantData.university || applicantData.institution || applicantData.college || "N/A")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Degree / Course</span>
+                  <span className="font-bold text-stone-900">
+                    {String(applicantData.course_or_degree || applicantData.course || applicantData.degree || applicantData.qualification || "N/A")}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Marks / CGPA</span>
+                  <span className="font-bold text-purple-700">
+                    {(() => {
+                      if (applicantData.qualifying_marks) return `${applicantData.qualifying_marks}%`;
+                      if (applicantData.percentage) return `${applicantData.percentage}%`;
+                      if (applicantData.qualifying_exam_percent) return `${applicantData.qualifying_exam_percent}%`;
+                      if (applicantData.cgpa) return `${applicantData.cgpa} CGPA`;
+                      const marksDoc = documents.find((d) =>
+                        ["marksheet", "degree_transcript", "degree_certificate", "tenth_certificate", "twelfth_certificate"].includes(d.doc_type)
+                      );
+                      if (marksDoc?.extracted_fields) {
+                        const p = marksDoc.extracted_fields.percentage || marksDoc.extracted_fields.cgpa || marksDoc.extracted_fields.marks;
+                        if (typeof p === "object" && p !== null) return `${(p as any).value || (p as any).percentage}%`;
+                        if (p) return `${p}%`;
+                      }
+                      if (caseFile.merit?.academic_score) return `${caseFile.merit.academic_score}% (Evaluated)`;
+                      return "N/A";
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-stone-500 block">Admission Offer Status</span>
+                  <span className="font-bold text-emerald-700">
+                    {applicantData.admission_confirmed
+                      ? (String(applicantData.admission_confirmed).toLowerCase() === "yes"
+                          ? "Confirmed (Unconditional)"
+                          : (String(applicantData.admission_confirmed).toLowerCase() === "no"
+                              ? "Provisional / Awaited"
+                              : String(applicantData.admission_confirmed)))
+                      : String(applicantData.admission_status || "Confirmed (Unconditional)")}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-2">
-              <GraduationCap className="w-4 h-4 text-purple-600" /> Academic &amp; Programme Info
-            </h3>
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <span className="text-stone-500 block">Institution</span>
-                <span className="font-bold text-stone-900">
-                  {typeof applicantData.institution === "string" ? applicantData.institution : "Jawaharlal Nehru University"}
-                </span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Degree / Course</span>
-                <span className="font-bold text-stone-900">
-                  {typeof applicantData.course === "string" ? applicantData.course : (typeof applicantData.degree === "string" ? applicantData.degree : "Ph.D. Linguistics")}
-                </span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Marks / CGPA</span>
-                <span className="font-bold text-purple-700">
-                  {String(applicantData.qualifying_exam_percent || applicantData.cgpa || "68.5")}%
-                </span>
-              </div>
-              <div>
-                <span className="text-stone-500 block">Admission Offer Status</span>
-                <span className="font-bold text-emerald-700">Confirmed (Unconditional)</span>
+          {/* Additional Dynamic Attributes Grid */}
+          {Object.keys(applicantData).length > 0 && (
+            <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-700 flex items-center gap-2 border-b border-stone-100 pb-2">
+                <FileText className="w-3.5 h-3.5 text-[#de5c36]" /> Complete Submitted Application Data (Live Fields)
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
+                {Object.entries(applicantData).map(([key, val]) => (
+                  <div key={key} className="bg-stone-50 p-2.5 rounded-lg border border-stone-200/70">
+                    <span className="text-[10px] uppercase font-bold text-stone-500 block truncate" title={key}>
+                      {key.replace(/_/g, " ")}
+                    </span>
+                    <span className="font-semibold text-stone-900 block truncate" title={String(val)}>
+                      {typeof val === "boolean" ? (val ? "Yes" : "No") : String(val ?? "—")}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -511,45 +627,50 @@ export default function ApplicationCaseFilePage() {
       {activeTab === "eligibility" && (
         <div className="space-y-6">
           {/* Overall Verdict Banner */}
-          <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                  <FileCheck2 className="w-4 h-4 text-emerald-600" /> Scheme Rule Engine Evaluation Matrix
-                </h3>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  Automated deterministic evaluation of applicant eligibility rules for {scheme?.code}.
-                </p>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${eligibility_result?.passed ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}>
-                OVERALL: {eligibility_result?.passed ? "ELIGIBLE (PASS)" : "INELIGIBLE (FAIL)"}
-              </span>
-            </div>
-
-            {eligibility_result?.failed_rules && eligibility_result.failed_rules.length > 0 ? (
-              <div className="space-y-3">
-                <div className="text-xs font-bold text-rose-800">Detected Rule Failures:</div>
-                {eligibility_result.failed_rules.map((rule, idx) => (
-                  <div key={idx} className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1">
-                    <div className="font-bold text-rose-900 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-600" />
-                      Field Rule: {rule.field}
-                    </div>
-                    <p className="text-rose-700">{rule.failure_message}</p>
+          {(() => {
+            const isEligible = eligibility_result?.passed ?? (caseFile.case_decision_summary?.eligibility_status === "PASS" || (decisionTrace?.decision_trace?.length ? decisionTrace.decision_trace.every((t: any) => t.status === "PASS") : false));
+            return (
+              <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                      <FileCheck2 className="w-4 h-4 text-emerald-600" /> Scheme Rule Engine Evaluation Matrix
+                    </h3>
+                    <p className="text-xs text-stone-500 mt-0.5">
+                      Automated deterministic evaluation of applicant eligibility rules for {scheme?.code}.
+                    </p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-2">
-                <div className="font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> All Mandatory Eligibility Rules Satisfied
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isEligible ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"}`}>
+                    OVERALL: {isEligible ? "ELIGIBLE (PASS)" : "INELIGIBLE (FAIL)"}
+                  </span>
                 </div>
-                <p className="text-emerald-800">
-                  Every scheme condition in the active declarative policy version has passed automated verification.
-                </p>
+
+                {eligibility_result?.failed_rules && eligibility_result.failed_rules.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="text-xs font-bold text-rose-800">Detected Rule Failures:</div>
+                    {eligibility_result.failed_rules.map((rule, idx) => (
+                      <div key={idx} className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs space-y-1">
+                        <div className="font-bold text-rose-900 flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          Field Rule: {rule.field}
+                        </div>
+                        <p className="text-rose-700">{rule.failure_message}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-2">
+                    <div className="font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> All Mandatory Eligibility Rules Satisfied
+                    </div>
+                    <p className="text-emerald-800">
+                      Every scheme condition in the active declarative policy version has passed automated verification.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Phase 8: DECISION TRACE & POLICY PROVENANCE */}
           <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
@@ -952,38 +1073,136 @@ export default function ApplicationCaseFilePage() {
             <Award className="w-4 h-4 text-purple-600" /> Selection Committee Merit Scoring
           </h3>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
-            <div className="bg-stone-50 p-3 rounded border border-stone-200">
-              <span className="text-stone-500 block">Academic Score</span>
-              <span className="text-base font-bold text-stone-900">{merit?.academic_score ?? 68.5} / 70</span>
+          {merit ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              <div className="bg-stone-50 p-3 rounded border border-stone-200">
+                <span className="text-stone-500 block">Academic Score</span>
+                <span className="text-base font-bold text-stone-900">{merit?.academic_score ?? "—"} / 70</span>
+              </div>
+              <div className="bg-stone-50 p-3 rounded border border-stone-200">
+                <span className="text-stone-500 block">Research Score</span>
+                <span className="text-base font-bold text-stone-900">{merit?.research_score ?? "—"} / 15</span>
+              </div>
+              <div className="bg-stone-50 p-3 rounded border border-stone-200">
+                <span className="text-stone-500 block">Experience Score</span>
+                <span className="text-base font-bold text-stone-900">{merit?.experience_score ?? "—"} / 10</span>
+              </div>
+              <div className="bg-purple-50 p-3 rounded border border-purple-200">
+                <span className="text-purple-700 block font-bold">Total Composite Score</span>
+                <span className="text-base font-extrabold text-purple-900">{merit?.total_score ?? "—"} / 100</span>
+              </div>
             </div>
-            <div className="bg-stone-50 p-3 rounded border border-stone-200">
-              <span className="text-stone-500 block">Research Score</span>
-              <span className="text-base font-bold text-stone-900">{merit?.research_score ?? 14.0} / 15</span>
+          ) : (
+            <div className="p-4 bg-purple-50/60 border border-purple-200 rounded-lg text-xs space-y-2">
+              <div className="font-bold text-purple-950 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-purple-700" /> Selection Committee Merit Scoring Pending
+              </div>
+              <p className="text-purple-800">
+                This case is currently undergoing document scrutiny and eligibility verification. Automated merit ranking and preference weightings will be calculated once scrutiny clearance is completed.
+              </p>
+              <div className="pt-2 border-t border-purple-200/60 flex items-center justify-between text-[11px] font-medium text-purple-900">
+                <span>Declared Qualifying Performance: <strong>{applicantData.qualifying_marks ? `${applicantData.qualifying_marks}%` : (applicantData.percentage ? `${applicantData.percentage}%` : "Recorded")}</strong></span>
+                <span>Institution: <strong>{String(applicantData.institution_name || applicantData.university || applicantData.institution || "Recorded")}</strong></span>
+              </div>
             </div>
-            <div className="bg-stone-50 p-3 rounded border border-stone-200">
-              <span className="text-stone-500 block">Experience Score</span>
-              <span className="text-base font-bold text-stone-900">{merit?.experience_score ?? 8.5} / 10</span>
-            </div>
-            <div className="bg-purple-50 p-3 rounded border border-purple-200">
-              <span className="text-purple-700 block font-bold">Total Composite Score</span>
-              <span className="text-base font-extrabold text-purple-900">{merit?.total_score ?? 91.0} / 100</span>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* TAB 6: INSTITUTE VERIFICATION */}
       {activeTab === "institute" && (
-        <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2 border-b border-stone-200 pb-3">
-            <Building2 className="w-4 h-4 text-stone-800" /> Institutional Validation Record
-          </h3>
+        <div className="bg-white p-6 rounded-xl border border-stone-200 shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-indigo-600" /> Institutional Validation &amp; Bonafide Verification
+              </h3>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Official institutional verification for enrolled scholar bonafide status, course registration, and admission offer.
+              </p>
+            </div>
+            <div>
+              <span
+                className={`px-2.5 py-1 text-xs font-bold rounded-full border ${
+                  institute_verification?.status === "VERIFIED"
+                    ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                    : institute_verification?.status === "QUERY_RAISED"
+                    ? "bg-amber-50 text-amber-800 border-amber-300"
+                    : institute_verification?.status === "REJECTED"
+                    ? "bg-rose-50 text-rose-800 border-rose-300"
+                    : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                }`}
+              >
+                {String(institute_verification?.status || "PENDING_VERIFICATION").replace(/_/g, " ")}
+              </span>
+            </div>
+          </div>
 
-          <div className="text-xs space-y-2">
-            <div><strong>Institution:</strong> {String(institute_verification?.institution_name || applicantData.institution || "Jawaharlal Nehru University")}</div>
-            <div><strong>Status:</strong> {String(institute_verification?.status || "VERIFIED")}</div>
-            <div><strong>Remarks:</strong> {String(institute_verification?.remarks || "Bonafide ST scholar enrollment verified by Nodal Officer.")}</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-200/80 space-y-2">
+              <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Institution Details</div>
+              <div><strong>Name:</strong> {String(institute_verification?.institution_name || applicantData.institution_name || applicantData.university || applicantData.institution || "N/A")}</div>
+              <div><strong>Code / AISHE:</strong> {String(institute_verification?.institution_code || applicantData.aishe_code || "INST-VERIFIED")}</div>
+              <div><strong>Degree Programme:</strong> {String(applicantData.course_or_degree || applicantData.course || applicantData.degree || "Registered")}</div>
+            </div>
+
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-200/80 space-y-2">
+              <div className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Verification History</div>
+              <div><strong>Official Remarks:</strong> {String(institute_verification?.remarks || "Institutional verification registered in work queue.")}</div>
+              <div><strong>Current Workflow Stage:</strong> <span className="font-mono uppercase font-bold text-stone-900">{application.current_state}</span></div>
+              <div><strong>Current Responsible Role:</strong> <span className="font-mono uppercase font-bold text-[#de5c36]">{application.current_responsible_role}</span></div>
+            </div>
+          </div>
+
+          {/* Interactive Verification Action Workbench */}
+          <div className="p-4 bg-gradient-to-r from-stone-50 via-indigo-50/30 to-stone-50 border border-stone-200 rounded-xl space-y-3">
+            <div className="text-xs font-bold text-stone-900 flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-indigo-600" />
+              <span>Nodal Officer / Institutional Action Desk</span>
+            </div>
+            <p className="text-xs text-stone-600">
+              Submit your verified institutional assessment. Recording a decision automatically updates the audit trail and advances eligible cases to Selection Committee.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-stone-700 block">Verification Remarks / Audit Notes</label>
+              <input
+                type="text"
+                placeholder="e.g. Bonafide enrollment confirmed with registrar records; admission unconditional."
+                value={instituteRemarks}
+                onChange={(e) => setInstituteRemarks(e.target.value)}
+                className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg bg-white placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-indigo-600"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                onClick={() => handleInstituteDecision("VERIFIED")}
+                disabled={isVerifyingInstitute}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {isVerifyingInstitute ? "Processing..." : "Verify Bonafide Enrollment & Credentials"}
+              </button>
+
+              <button
+                onClick={() => handleInstituteDecision("QUERY_RAISED")}
+                disabled={isVerifyingInstitute}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-sm transition disabled:opacity-50"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Raise Query to Student
+              </button>
+
+              <button
+                onClick={() => handleInstituteDecision("REJECTED")}
+                disabled={isVerifyingInstitute}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm transition disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" />
+                Reject Institutional Bonafide
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1054,129 +1273,77 @@ export default function ApplicationCaseFilePage() {
 
             {/* Split Body */}
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-y-auto divide-y md:divide-y-0 md:divide-x divide-stone-200">
-              {/* Left: Document Preview */}
-              <div className="p-4 bg-stone-100 flex flex-col min-h-[460px]">
+              {/* Left: Document Preview - Pure Original Document Only */}
+              <div className="p-4 bg-stone-100 flex flex-col min-h-[500px]">
                 {(() => {
                   const directFileUrl = `/api/applications/documents/${selectedDoc.id}/file`;
-                  const certNo = selectedDoc.extracted_fields?.certificate_no || selectedDoc.extracted_fields?.roll_no || selectedDoc.extracted_fields?.passport_number || "ST/JH/2024/7711";
-                  const applicantName = application.applicant_name || "Applicant";
-                  const fatherName = applicantData.father_name || "Shri Ramesh Soren";
-                  const tribeCategory = applicantData.tribe ? `${applicantData.tribe} (Scheduled Tribe)` : (selectedDoc.extracted_fields?.category || "Scheduled Tribe (ST)");
-                  const stateVal = applicantData.state || applicantData.domicile_state || "Jharkhand";
-                  const districtVal = applicantData.district || "Ranchi";
-                  const authorityVal = selectedDoc.extracted_fields?.issuing_authority || "Office of Sub-Divisional Officer & Magistrate";
-                  const issueDateVal = selectedDoc.extracted_fields?.issue_date || (selectedDoc.uploaded_at ? new Date(selectedDoc.uploaded_at).toLocaleDateString("en-IN") : "15-07-2024");
+                  const isImage = Boolean(
+                    (selectedDoc.content_type && selectedDoc.content_type.startsWith("image/")) ||
+                    /\.(jpg|jpeg|png|webp)$/i.test(selectedDoc.storage_key || "")
+                  );
 
                   return (
                     <div className="flex flex-col h-full flex-1">
-                      {/* Top Bar with Mode Switcher & Open in New Tab */}
+                      {/* Top Bar with Document Info & Actions */}
                       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 mb-2 border-b border-stone-200">
-                        <div className="inline-flex p-0.5 bg-stone-200 rounded-lg text-[11px] font-semibold">
-                          <button
-                            type="button"
-                            onClick={() => setDocPreviewMode("pdf")}
-                            className={`px-2.5 py-1 rounded-md transition ${docPreviewMode === "pdf" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}
-                          >
-                            Official PDF
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDocPreviewMode("digital")}
-                            className={`px-2.5 py-1 rounded-md transition ${docPreviewMode === "digital" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}
-                          >
-                            Digital Certificate
-                          </button>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-stone-800 uppercase">
+                            Original Uploaded Document
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-stone-200 text-stone-700 uppercase">
+                            {isImage ? "Image" : "PDF"}
+                          </span>
                         </div>
 
-                        <a
-                          href={directFileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-stone-300 rounded text-stone-700 hover:text-stone-900 hover:bg-stone-50 text-[11px] font-semibold shadow-sm transition"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 text-stone-500" /> Open in New Tab
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={directFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-stone-300 rounded text-stone-700 hover:text-stone-900 hover:bg-stone-50 text-[11px] font-semibold shadow-sm transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-stone-500" /> Open in New Tab
+                          </a>
+                          <a
+                            href={directFileUrl}
+                            download={`${selectedDoc.doc_type}_${selectedDoc.id}.pdf`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#de5c36] text-white rounded hover:bg-[#c94d28] text-[11px] font-semibold shadow-sm transition"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </a>
+                        </div>
                       </div>
 
-                      {/* Main Viewer Area */}
-                      {docPreviewMode === "pdf" ? (
-                        <div className="flex-1 w-full flex flex-col min-h-[380px] bg-white rounded-lg border border-stone-300 shadow-inner overflow-hidden">
+                      {/* Main Viewer Area - Authentic Uploaded File */}
+                      <div className="flex-1 w-full flex flex-col min-h-[460px] bg-white rounded-lg border border-stone-300 shadow-inner overflow-hidden">
+                        {isImage ? (
+                          <div className="flex-1 flex items-center justify-center p-3 bg-stone-50 overflow-auto">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={directFileUrl}
+                              alt={selectedDoc.doc_type}
+                              className="max-h-[500px] max-w-full object-contain rounded shadow-sm border border-stone-200"
+                            />
+                          </div>
+                        ) : (
                           <iframe
-                            src={`${directFileUrl}#toolbar=0&navpanes=0`}
-                            className="w-full flex-1 min-h-[380px] border-0"
+                            src={`${directFileUrl}#toolbar=1&navpanes=0`}
+                            className="w-full flex-1 min-h-[460px] border-0"
                             title={selectedDoc.doc_type}
                           />
-                          <div className="px-3 py-1.5 bg-stone-50 border-t border-stone-200 text-[10px] text-stone-500 flex items-center justify-between">
-                            <span>Inline preview stream from Ministry vault.</span>
-                            <button
-                              type="button"
-                              onClick={() => setDocPreviewMode("digital")}
-                              className="text-amber-700 hover:underline font-medium"
-                            >
-                              Can&apos;t view PDF? Switch to Digital View →
-                            </button>
-                          </div>
+                        )}
+                        <div className="px-3 py-1.5 bg-stone-50 border-t border-stone-200 text-[10px] text-stone-500 flex items-center justify-between">
+                          <span>Original uploaded file rendered securely from Ministry Vault.</span>
+                          <a
+                            href={directFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#de5c36] hover:underline font-semibold"
+                          >
+                            View fullscreen in new tab →
+                          </a>
                         </div>
-                      ) : (
-                        <div className="flex-1 w-full bg-white rounded-lg border-2 border-stone-700 p-5 shadow-sm overflow-y-auto flex flex-col justify-between font-serif">
-                          <div>
-                            {/* Certificate Seal & Header */}
-                            <div className="text-center border-b-2 border-stone-800 pb-3 mb-4">
-                              <span className="text-[10px] uppercase font-sans font-bold tracking-widest text-amber-800 block">
-                                Government of {stateVal.toUpperCase()}
-                              </span>
-                              <h4 className="text-sm font-black tracking-wide text-stone-900 mt-0.5 uppercase">
-                                {selectedDoc.doc_type.replace(/_/g, " ")}
-                              </h4>
-                              <span className="text-[10px] text-stone-600 font-sans block mt-0.5">
-                                Issued by {authorityVal}, District {districtVal}
-                              </span>
-                              <div className="mt-1 font-mono text-[10px] font-bold text-stone-800 bg-stone-100 inline-block px-2 py-0.5 rounded border border-stone-300">
-                                Cert No: {certNo}
-                              </div>
-                            </div>
-
-                            {/* Certificate Content Body */}
-                            <div className="text-xs text-stone-800 space-y-2.5 leading-relaxed font-sans">
-                              <p>
-                                This is to officially certify that <strong className="font-semibold text-stone-900">{applicantName}</strong>,
-                                son/daughter of <strong className="font-semibold text-stone-900">{fatherName}</strong>,
-                                residing at <span className="font-semibold">{districtVal}</span>, State of <span className="font-semibold">{stateVal}</span>.
-                              </p>
-                              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg text-[11px] space-y-1">
-                                <div className="flex justify-between">
-                                  <span className="text-stone-600">Recognized Category / Tribe:</span>
-                                  <strong className="text-stone-900">{tribeCategory}</strong>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-stone-600">Issuing Authority:</span>
-                                  <strong className="text-stone-900">{authorityVal}</strong>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span className="text-stone-600">Date of Issue:</span>
-                                  <strong className="text-stone-900">{issueDateVal}</strong>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Digital Verification Stamp */}
-                          <div className="mt-4 pt-3 border-t border-stone-200 flex items-center justify-between font-sans">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-700">
-                                <Shield className="w-4 h-4" />
-                              </div>
-                              <div>
-                                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Digitally Verified &amp; Signed</span>
-                                <span className="text-[9px] text-stone-500 font-mono">ePramaan / NeGD Auth Token Verified</span>
-                              </div>
-                            </div>
-                            <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded">
-                              AUTHENTIC
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   );
                 })()}

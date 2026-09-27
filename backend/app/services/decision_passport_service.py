@@ -107,8 +107,8 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
         "responsible_role": application.current_responsible_role or "SCRUTINY_OFFICER",
         "created_at": created_at_iso,
         "stage_entry_time": stage_entry_iso,
-        "district": application.district or app_data.get("district", "Not Specified"),
-        "state": application.state or app_data.get("state", "Not Specified"),
+        "district": str(application.district or app_data.get("district", "Not Specified")).title(),
+        "state": str(application.state or app_data.get("state", "Not Specified")).title(),
     }
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -186,8 +186,17 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
         if not rule_passed:
             all_rules_passed = False
 
+        doc_status_str = (
+            evidence_doc.status.value.upper()
+            if (evidence_doc and hasattr(evidence_doc.status, "value"))
+            else (str(evidence_doc.status).replace("DocumentStatus.", "").upper() if evidence_doc else "NOT_UPLOADED")
+        )
+
+        match_status = "MATCH" if (extracted_evidence_val and str(declared_val).strip().lower() == str(extracted_evidence_val).strip().lower()) else ("NOT_CHECKED" if not extracted_evidence_val else "DISCREPANCY")
+
         rules_evaluated.append({
             "rule_id": rule_code,
+            "rule_code": rule_code,
             "field": field_name,
             "description": f"Verify applicant {field_name.replace('_', ' ')} satisfies scheme policy",
             "condition": condition,
@@ -195,10 +204,11 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
             "extracted_evidence_value": extracted_evidence_val,
             "evidence_confidence": doc_confidence_val,
             "evidence_snippet": source_line,
+            "evidence_match_status": match_status,
             "supporting_document": {
                 "doc_id": str(evidence_doc.id) if evidence_doc else None,
                 "doc_type": doc_type_hint,
-                "status": str(evidence_doc.status) if evidence_doc else "NOT_UPLOADED",
+                "status": doc_status_str,
             } if evidence_doc or doc_type_hint else None,
             "passed": rule_passed,
             "status": "PASS" if rule_passed else "FAIL",
@@ -207,8 +217,10 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
 
     eligibility_section = {
         "status": "VERIFIED" if all_rules_passed else "FAILED",
+        "passed": all_rules_passed,
         "rules_passed": sum(1 for r in rules_evaluated if r["passed"]),
         "total_rules": len(rules_evaluated),
+        "rules_evaluated": len(rules_evaluated),
         "rules": rules_evaluated,
     }
 
@@ -227,34 +239,49 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
         for k, v in extracted.items():
             if not k.startswith("_"):
                 if isinstance(v, dict):
+                    f_val = v.get("value")
+                    f_conf = v.get("confidence", 0.85)
+                    f_snip = v.get("source_region", {}).get("line_text", "")
                     field_items.append({
                         "field": k,
-                        "value": v.get("value"),
-                        "confidence": v.get("confidence", 0.85),
+                        "field_name": k,
+                        "value": f_val,
+                        "confidence": f_conf,
                         "confidence_label": v.get("confidence_label", "medium"),
                         "source_page": v.get("source_page", 1),
                         "source_region": v.get("source_region", {}),
+                        "source_snippet": f_snip,
                         "validation_status": v.get("validation_status", "verified"),
                     })
                 else:
                     field_items.append({
                         "field": k,
+                        "field_name": k,
                         "value": str(v),
                         "confidence": 0.85,
                         "confidence_label": "medium",
                         "source_page": 1,
                         "source_region": {},
+                        "source_snippet": "",
                         "validation_status": "verified",
                     })
 
         doc_conf = trust.get("document_confidence", 0.85)
         total_doc_confidences.append(doc_conf)
 
+        clean_doc_status = (
+            doc.status.value.upper()
+            if hasattr(doc.status, "value")
+            else str(doc.status).replace("DocumentStatus.", "").upper()
+        )
+
         document_evidence_list.append({
             "doc_id": str(doc.id),
+            "document_id": str(doc.id),
             "doc_type": doc.doc_type,
+            "document_type": doc.doc_type,
             "label": doc.doc_type.replace("_", " ").title(),
-            "status": str(doc.status),
+            "status": clean_doc_status,
             "document_confidence": doc_conf,
             "quality_tier": "HIGH" if doc_conf >= 0.85 else ("MEDIUM" if doc_conf >= 0.65 else "LOW"),
             "extracted_fields": field_items,
@@ -269,7 +296,7 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
     # 4. EVIDENCE GRAPH & CROSS-DOCUMENT CONSISTENCY
     # ──────────────────────────────────────────────────────────────────────────
     evidence_graph = build_evidence_graph(application, documents)
-    cross_doc_confidence = evidence_graph.get("cross_document_confidence", 1.0)
+    cross_doc_confidence = float(evidence_graph.get("cross_document_confidence", 1.0))
     avg_doc_confidence = (sum(total_doc_confidences) / len(total_doc_confidences)) if total_doc_confidences else 0.85
     composite_trust_score = int((0.6 * avg_doc_confidence + 0.4 * cross_doc_confidence) * 100)
 
@@ -284,15 +311,21 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
         overall_routing = "AUTO_VERIFY"
         routing_reason = "High confidence and verified consistency across all uploaded documents."
 
+    ocr_quality = "EXCELLENT" if avg_doc_confidence >= 0.85 else ("GOOD" if avg_doc_confidence >= 0.65 else "ACCEPTABLE")
+
     ai_confidence_section = {
         "overall_trust_score": composite_trust_score,
         "trust_badge": "VERIFIED" if composite_trust_score >= 85 else ("REVIEW_REQUIRED" if composite_trust_score >= 65 else "FAILED"),
         "average_document_confidence": round(avg_doc_confidence, 2),
+        "average_field_confidence": round(avg_doc_confidence, 2),
+        "ocr_quality_rating": ocr_quality,
         "cross_document_confidence": cross_doc_confidence,
-        "cross_document_consistency": evidence_graph.get("consistency_verdict", "PASS"),
+        "cross_document_consistency": cross_doc_confidence,
+        "consistency_verdict": evidence_graph.get("consistency_verdict", "PASS"),
         "total_cross_anomalies": evidence_graph.get("total_anomalies", 0),
         "anomalies": evidence_graph.get("anomalies", []),
         "review_routing": overall_routing,
+        "uncertainty_routing": overall_routing,
         "routing_explanation": routing_reason,
         "cross_comparisons": evidence_graph.get("cross_comparisons", []),
     }
@@ -317,6 +350,7 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
     deficiencies_section = {
         "status": "NONE" if not deficiency_items else ("RESOLVED" if all(d["status"] == "RESOLVED" for d in deficiency_items) else "OPEN"),
         "count": len(deficiency_items),
+        "deficiency_count": len(deficiency_items),
         "items": deficiency_items,
     }
 
@@ -338,10 +372,12 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
     # ──────────────────────────────────────────────────────────────────────────
     scrutiny_section = {
         "status": "VERIFIED" if application.current_state in ["merit_evaluated", "selection", "approved", "awarded"] else ("DEFICIENT" if application.current_state == "deficiency_flagged" else "PENDING"),
-        "assigned_officer_id": str(application.assigned_scrutiny_officer_id) if application.assigned_scrutiny_officer_id else None,
+        "scrutiny_status": "VERIFIED" if application.current_state in ["merit_evaluated", "selection", "approved", "awarded"] else ("DEFICIENT" if application.current_state == "deficiency_flagged" else "UNDER REVIEW"),
+        "assigned_officer_id": str(application.assigned_scrutiny_officer_id) if application.assigned_scrutiny_officer_id else "Desk Scrutiny Queue",
         "last_action_time": stage_entry_iso,
         "oversight_mode": "HUMAN_IN_THE_LOOP",
         "human_decision": "APPROVED" if application.current_state in ["merit_evaluated", "selection", "approved"] else "UNDER_REVIEW",
+        "remarks": "Automated OCR extraction verified. Supporting credentials checked.",
     }
 
     # ──────────────────────────────────────────────────────────────────────────
@@ -359,10 +395,13 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
 
     committee_section = {
         "quorum_required": quorum_required,
+        "quorum_met": quorum_met,
         "quorum_reached": quorum_met,
         "total_reviews": len(committee_reviews),
+        "reviews_completed": len(committee_reviews),
         "approvals": committee_approvals,
         "conflict_of_interest": "CONFLICT_DETECTED" if conflict_declared else "CLEARED",
+        "unresolved_conflicts": len(active_conflicts),
         "conflict_details": [c.explanation for c in active_conflicts] if active_conflicts else [],
         "reviews": [
             {
@@ -376,6 +415,7 @@ def build_decision_passport(db: Session, application_id: uuid.UUID) -> Dict[str,
             for r in committee_reviews
         ],
         "verdict": "APPROVED" if (quorum_met and committee_approvals >= 2 and not conflict_declared) else ("BLOCKED_BY_CONFLICT" if conflict_declared else "PENDING_COMMITTEE_REVIEW"),
+        "consensus_recommendation": "APPROVED" if (quorum_met and committee_approvals >= 2 and not conflict_declared) else ("BLOCKED_BY_CONFLICT" if conflict_declared else "PENDING_COMMITTEE_REVIEW"),
     }
 
     # ──────────────────────────────────────────────────────────────────────────

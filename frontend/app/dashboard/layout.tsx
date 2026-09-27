@@ -195,32 +195,18 @@ export default function DashboardLayout({
         }`}
       >
         <div className="relative z-10 flex-1 overflow-y-auto pb-6">
-          {/* Portal Brand & Emblem */}
-          <div className="p-5 border-b border-gray-700/60 flex items-start gap-3">
-            <div className="w-10 h-11 flex-shrink-0 flex items-center justify-center bg-gray-700/40 rounded border border-gray-600/50 text-amber-300">
-              <svg
-                aria-label="National Emblem of India"
-                className="w-7 h-7 fill-current"
-                viewBox="0 0 24 24"
-              >
-                <path d="M12 2L9 7h6l-3-5zm0 6c-2.5 0-4 1.5-4 4v3h8v-3c0-2.5-1.5-4-4-4zm-6 8h12v2H6v-2zm2 3h8v1H8v-1z" />
-                <circle cx="12" cy="14" r="1.5" />
-              </svg>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] tracking-wider uppercase font-semibold text-gray-400 leading-tight">
-                Govt. of India
-              </span>
-              <h1 className="text-xs font-bold text-gray-100 uppercase leading-snug">
-                Ministry of Tribal Affairs
-              </h1>
-              <p className="text-[9px] text-amber-200/80 font-medium tracking-tight mt-0.5 leading-tight">
-                YOJANA SETU (SIH26239)
-              </p>
-            </div>
+          {/* Portal Brand — Only Slightly Big Yojana Setu Logo */}
+          <div className="p-4 border-b border-gray-700/60 flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center justify-center flex-1">
+              <img
+                src="/yojana-setu-logo.png"
+                alt="Yojana Setu"
+                className="h-14 sm:h-16 w-auto object-contain bg-white/95 p-1.5 rounded-xl shadow-md border border-white/20"
+              />
+            </Link>
 
             <button
-              className="md:hidden ml-auto text-gray-400 hover:text-white"
+              className="md:hidden ml-2 text-gray-400 hover:text-white shrink-0"
               onClick={() => setMobileOpen(false)}
             >
               <X className="w-5 h-5" />
@@ -331,9 +317,27 @@ export default function DashboardLayout({
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="font-serif italic text-amber-950 font-medium text-sm sm:text-base tracking-wide drop-shadow-sm hidden sm:block">
-              &ldquo;Yojana Setu — AI-Enabled Tribal Scholarship &amp; Fellowship Management&rdquo;
-            </span>
+            <div className="hidden sm:flex items-center gap-3">
+              <img
+                src="/ashoka-emblem.png"
+                alt="State Emblem of India"
+                className="h-8 w-auto object-contain"
+              />
+              <div className="flex flex-col">
+                <span className="text-[9px] text-stone-600 font-bold uppercase tracking-wider leading-none">
+                  Govt. of India
+                </span>
+                <span className="text-[11px] text-stone-900 font-extrabold uppercase tracking-tight leading-tight">
+                  Ministry of Tribal Affairs
+                </span>
+              </div>
+              <span className="text-stone-300">|</span>
+              <img
+                src="/yojana-setu-logo.png"
+                alt="Yojana Setu"
+                className="h-8 w-auto object-contain"
+              />
+            </div>
           </div>
 
           <div className="relative z-10 flex items-center gap-3 md:gap-4">

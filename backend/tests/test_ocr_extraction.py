@@ -296,8 +296,9 @@ class TestOCRService:
         from app.services.ocr_service import extract_text
         from unittest.mock import patch, MagicMock
 
-        with patch("app.services.ocr_service.subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout="Sample text", stderr="", returncode=0)
+        mock_provider = MagicMock()
+        mock_provider.extract_text.return_value = "Sample text"
+        with patch("app.services.ocr_service.get_document_intelligence_provider", return_value=mock_provider):
             result = extract_text(b"fake image bytes", "image/png")
             assert isinstance(result, str)
             assert result == "Sample text"

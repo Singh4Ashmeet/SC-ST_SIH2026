@@ -79,7 +79,20 @@ def evaluate_document_trust(
         "pass": ocr_quality in ["GOOD", "MODERATE"],
     }
 
-    # 2. Document Type Match
+    # 2. Document Type Match & Visual Deep Learning Classification
+    classification = extracted.get("_doc_classification")
+    if classification and isinstance(classification, dict):
+        pred_class = classification.get("predicted_class")
+        conf = classification.get("confidence", 0.0)
+        is_match = classification.get("is_match_with_claimed_type", True)
+        signals["visual_classifier"] = {
+            "model": classification.get("model_name", "EfficientNet-B0 (document_classifier_final.pt)"),
+            "predicted_class": pred_class,
+            "confidence": conf,
+            "pass": is_match,
+            "label": f"Deep Learning Verdict: {pred_class} ({int(conf * 100)}% visual match)" if pred_class else "Deep Learning Classification Verified",
+        }
+
     if text_len > 100 and len(extracted_keys) < 2:
         doc_type_match = "MISMATCH"
         reasons.append("Document text does not match expected structure for this certificate type.")

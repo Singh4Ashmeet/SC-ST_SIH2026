@@ -88,21 +88,27 @@ class DocumentIntelligenceProvider(ABC):
         pass
 
 
-class TesseractDocumentProvider(DocumentIntelligenceProvider):
-    """Production Tesseract & PyMuPDF Document Intelligence Provider."""
+class RapidOCRDocumentProvider(DocumentIntelligenceProvider):
+    """High-speed in-memory Document Intelligence Provider powered by PyMuPDF and RapidOCR ONNX."""
 
     def __init__(self):
-        if sys.platform == "win32":
-            import pytesseract
-            pytesseract.pytesseract.tesseract_cmd = os.getenv(
-                "TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-            )
+        self._rapid_ocr = None
+
+    def _get_ocr(self):
+        if self._rapid_ocr is None:
+            try:
+                from rapidocr_onnxruntime import RapidOCR
+                self._rapid_ocr = RapidOCR()
+            except Exception as e:
+                logger.warning(f"Could not load RapidOCR: {e}")
+                self._rapid_ocr = False
+        return self._rapid_ocr if self._rapid_ocr is not False else None
 
     def get_provider_info(self) -> Dict[str, Any]:
         return {
-            "provider_name": "TesseractDocumentProvider",
-            "type": "OCR_HYBRID",
-            "engine": "PyMuPDF_and_Tesseract",
+            "provider_name": "RapidOCRDocumentProvider",
+            "type": "OCR_HYBRID_ONNX",
+            "engine": "PyMuPDF_and_RapidOCR",
             "is_simulation": False,
             "supports_layout": True,
         }
@@ -113,37 +119,16 @@ class TesseractDocumentProvider(DocumentIntelligenceProvider):
 
         try:
             if content_type == "application/pdf":
-                return self._extract_pdf(file_bytes)
+                text = self._extract_pdf(file_bytes)
             else:
-                return self._extract_image(file_bytes, content_type)
+                text = self._extract_image(file_bytes)
+            return (text or "").replace("\x00", "").replace("\u0000", "")
         except Exception as e:
-            logger.warning(f"Tesseract OCR failed: {e}")
+            logger.warning(f"RapidOCR extraction failed: {e}")
             return ""
 
-    def extract_structured(self, file_bytes: bytes, content_type: str) -> Dict[str, Any]:
-        text = self.extract_text(file_bytes, content_type)
-        confidence = _calculate_text_quality_confidence(text)
-        
-        # Determine extraction method and quality tier
-        method = "embedded_pdf_stream" if content_type == "application/pdf" else "tesseract_raster_ocr"
-        quality_tier = "HIGH" if confidence >= 0.85 else ("MEDIUM" if confidence >= 0.65 else "LOW")
-
-        return {
-            "provider": "tesseract",
-            "raw_text": text,
-            "document_confidence": confidence,
-            "quality_tier": quality_tier,
-            "extraction_method": method,
-            "is_simulated": False,
-            "metadata": {
-                "byte_size": len(file_bytes) if file_bytes else 0,
-                "content_type": content_type,
-                "character_count": len(text),
-            }
-        }
-
     def _extract_pdf(self, file_bytes: bytes) -> str:
-        # 1. First attempt direct digital text extraction using PyMuPDF (fast, loss-less, accurate)
+        # 1. Attempt ultra-fast direct digital text stream extraction via PyMuPDF (< 10ms)
         try:
             import pymupdf
             doc = pymupdf.open(stream=file_bytes, filetype="pdf")
@@ -155,9 +140,143 @@ class TesseractDocumentProvider(DocumentIntelligenceProvider):
             if extracted_pages:
                 return "\n\n".join(extracted_pages)
         except Exception as e:
-            logger.debug(f"Direct PyMuPDF text stream extraction failed: {e}")
+            logger.debug(f"Direct PyMuPDF stream extraction failed: {e}")
 
-        # 2. If scanned image PDF, render pixmaps via PyMuPDF and OCR via pytesseract
+        # 2. Scanned PDF: render pages with PyMuPDF and run RapidOCR in-memory
+        ocr = self._get_ocr()
+        if ocr is None:
+            return ""
+
+        try:
+            import cv2
+            import numpy as np
+            import pymupdf
+            doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+            all_text = []
+            for i, page in enumerate(doc):
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img is not None:
+                    res, _ = ocr(img)
+                    if res:
+                        page_text = "\n".join([line[1] for line in res if line and len(line) > 1])
+                        if page_text.strip():
+                            all_text.append(f"--- Page {i + 1} ---\n{page_text}")
+            if all_text:
+                return "\n\n".join(all_text)
+        except Exception as e:
+            logger.debug(f"PyMuPDF raster OCR failed: {e}")
+
+        return ""
+
+    def _extract_image(self, file_bytes: bytes) -> str:
+        ocr = self._get_ocr()
+        if ocr is None:
+            return ""
+        try:
+            import cv2
+            import numpy as np
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return ""
+            res, _ = ocr(img)
+            if res:
+                return "\n".join([line[1] for line in res if line and len(line) > 1])
+            return ""
+        except Exception as e:
+            logger.warning(f"Image RapidOCR failed: {e}")
+            return ""
+
+    def extract_structured(self, file_bytes: bytes, content_type: str) -> Dict[str, Any]:
+        text = self.extract_text(file_bytes, content_type)
+        confidence = _calculate_text_quality_confidence(text)
+        method = "embedded_pdf_stream" if content_type == "application/pdf" else "rapidocr_onnx"
+        quality_tier = "HIGH" if confidence >= 0.80 else ("MEDIUM" if confidence >= 0.50 else "LOW")
+
+        return {
+            "provider": "rapidocr",
+            "raw_text": text,
+            "document_confidence": confidence,
+            "confidence": confidence,
+            "quality_tier": quality_tier,
+            "extraction_method": method,
+            "is_simulated": False,
+            "metadata": {
+                "byte_size": len(file_bytes) if file_bytes else 0,
+                "content_type": content_type,
+                "character_count": len(text),
+            }
+        }
+
+
+class TesseractDocumentProvider(DocumentIntelligenceProvider):
+    """Production Hybrid Provider: Prefers RapidOCR / PyMuPDF, falls back to Tesseract if present."""
+
+    def __init__(self):
+        self._rapid = RapidOCRDocumentProvider()
+        self._has_tesseract = False
+        if sys.platform == "win32":
+            cmd = os.getenv("TESSERACT_CMD", r"C:\Program Files\Tesseract-OCR\tesseract.exe")
+            if os.path.exists(cmd):
+                import pytesseract
+                pytesseract.pytesseract.tesseract_cmd = cmd
+                self._has_tesseract = True
+
+    def get_provider_info(self) -> Dict[str, Any]:
+        return {
+            "provider_name": "TesseractDocumentProvider",
+            "type": "OCR_HYBRID",
+            "engine": "RapidOCR_PyMuPDF_and_Tesseract",
+            "is_simulation": False,
+            "supports_layout": True,
+        }
+
+    def extract_text(self, file_bytes: bytes, content_type: str) -> str:
+        if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
+            return ""
+
+        # First attempt high-speed in-memory RapidOCR & PyMuPDF
+        text = self._rapid.extract_text(file_bytes, content_type)
+        if text and len(text.strip()) > 10:
+            return text
+
+        # If tesseract is installed and rapid produced little text, try tesseract
+        if self._has_tesseract:
+            try:
+                if content_type == "application/pdf":
+                    return self._extract_pdf_tesseract(file_bytes)
+                else:
+                    return self._extract_image_tesseract(file_bytes, content_type)
+            except Exception as e:
+                logger.warning(f"Tesseract OCR fallback failed: {e}")
+
+        return text or ""
+
+    def extract_structured(self, file_bytes: bytes, content_type: str) -> Dict[str, Any]:
+        text = self.extract_text(file_bytes, content_type)
+        confidence = _calculate_text_quality_confidence(text)
+        method = "embedded_pdf_stream" if content_type == "application/pdf" else "hybrid_ocr"
+        quality_tier = "HIGH" if confidence >= 0.85 else ("MEDIUM" if confidence >= 0.65 else "LOW")
+
+        return {
+            "provider": "tesseract_hybrid",
+            "raw_text": text,
+            "document_confidence": confidence,
+            "confidence": confidence,
+            "quality_tier": quality_tier,
+            "extraction_method": method,
+            "is_simulated": False,
+            "metadata": {
+                "byte_size": len(file_bytes) if file_bytes else 0,
+                "content_type": content_type,
+                "character_count": len(text),
+            }
+        }
+
+    def _extract_pdf_tesseract(self, file_bytes: bytes) -> str:
         try:
             import pymupdf
             import pytesseract
@@ -165,7 +284,7 @@ class TesseractDocumentProvider(DocumentIntelligenceProvider):
             doc = pymupdf.open(stream=file_bytes, filetype="pdf")
             all_text = []
             for i, page in enumerate(doc):
-                pix = page.get_pixmap(dpi=200)
+                pix = page.get_pixmap(dpi=150)
                 img = Image.open(io.BytesIO(pix.tobytes("png")))
                 page_text = pytesseract.image_to_string(img, lang="eng")
                 if page_text.strip():
@@ -173,63 +292,24 @@ class TesseractDocumentProvider(DocumentIntelligenceProvider):
             if all_text:
                 return "\n\n".join(all_text)
         except Exception as e:
-            logger.debug(f"PyMuPDF raster OCR failed: {e}")
+            logger.debug(f"PyMuPDF raster Tesseract failed: {e}")
+        return ""
 
-        # 3. Fallback to pdf2image if poppler is installed
-        try:
-            from pdf2image import convert_from_bytes
-            import pytesseract
-
-            images = convert_from_bytes(file_bytes, dpi=300, fmt="png", thread_count=2)
-            if not images:
-                return ""
-
-            all_text = []
-            for i, image in enumerate(images):
-                page_text = pytesseract.image_to_string(image, lang="eng")
-                if page_text.strip():
-                    all_text.append(f"--- Page {i + 1} ---\n{page_text}")
-            return "\n\n".join(all_text)
-        except Exception as e:
-            logger.warning(f"PDF OCR failed: {e}")
-            return ""
-
-    def _extract_image(self, file_bytes: bytes, content_type: str) -> str:
+    def _extract_image_tesseract(self, file_bytes: bytes, content_type: str) -> str:
         import pytesseract
-
-        suffix = ".png"
-        if "jpeg" in content_type or "jpg" in content_type:
-            suffix = ".jpg"
-
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(file_bytes)
-            tmp_path = tmp.name
-
+        from PIL import Image
         try:
-            cmd = pytesseract.pytesseract.tesseract_cmd
-            result = subprocess.run(
-                [cmd, tmp_path, "stdout", "-l", "eng"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if result.returncode == 0:
-                return result.stdout.strip()
-            return ""
+            img = Image.open(io.BytesIO(file_bytes))
+            return pytesseract.image_to_string(img, lang="eng")
         except Exception as e:
-            logger.warning(f"Image OCR failed: {e}")
+            logger.warning(f"Image Tesseract failed: {e}")
             return ""
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
 
 
 class MockDocumentProvider(DocumentIntelligenceProvider):
     """
     Mock sandbox provider used for offline testing and deterministic CI runs.
-    Transparently marks itself as sandbox/simulated.
+    Transparently marks itself as sandbox/simulated. Never decodes binary garbage.
     """
 
     def get_provider_info(self) -> Dict[str, Any]:
@@ -243,13 +323,21 @@ class MockDocumentProvider(DocumentIntelligenceProvider):
     def extract_text(self, file_bytes: bytes, content_type: str) -> str:
         if not file_bytes or content_type not in SUPPORTED_MIME_TYPES:
             return ""
-        try:
-            raw_str = file_bytes.decode("latin-1", errors="ignore")
-            lines = [line.strip() for line in raw_str.splitlines() if len(line.strip()) > 3]
-            clean_lines = [l for l in lines if not l.startswith("%") and not l.startswith("<<")]
-            return "\n".join(clean_lines[:30])
-        except Exception:
-            return "Government Certificate Document Verified [SANDBOX]"
+        # Try PyMuPDF for PDF files safely
+        if content_type == "application/pdf":
+            try:
+                import pymupdf
+                doc = pymupdf.open(stream=file_bytes, filetype="pdf")
+                lines = []
+                for page in doc:
+                    txt = page.get_text()
+                    if txt and txt.strip():
+                        lines.append(txt.strip())
+                if lines:
+                    return "\n".join(lines)
+            except Exception:
+                pass
+        return "Government Certificate Official Verification Record [SANDBOX]"
 
     def extract_structured(self, file_bytes: bytes, content_type: str) -> Dict[str, Any]:
         text = self.extract_text(file_bytes, content_type)
@@ -305,15 +393,24 @@ TesseractOCRProvider = TesseractDocumentProvider
 FallbackOCRProvider = MockDocumentProvider
 
 
+_CACHED_PROVIDER = None
+
 def get_document_intelligence_provider() -> DocumentIntelligenceProvider:
     """Factory function returning active Document Intelligence provider based on configuration."""
+    global _CACHED_PROVIDER
+    if _CACHED_PROVIDER is not None:
+        return _CACHED_PROVIDER
+
     provider_name = os.getenv("OCR_PROVIDER", "tesseract").lower()
     if provider_name == "vision" or provider_name == "future_vision":
-        return FutureVisionDocumentProvider()
+        _CACHED_PROVIDER = FutureVisionDocumentProvider()
+    elif provider_name in ["rapid", "rapidocr", "rapid_ocr"]:
+        _CACHED_PROVIDER = RapidOCRDocumentProvider()
     elif provider_name in ["mock", "sandbox", "fallback"]:
-        return MockDocumentProvider()
+        _CACHED_PROVIDER = MockDocumentProvider()
     else:
-        return TesseractDocumentProvider()
+        _CACHED_PROVIDER = TesseractDocumentProvider()
+    return _CACHED_PROVIDER
 
 
 def get_ocr_provider() -> DocumentIntelligenceProvider:

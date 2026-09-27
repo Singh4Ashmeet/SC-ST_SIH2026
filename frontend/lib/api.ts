@@ -288,16 +288,40 @@ export interface ApplicationRead {
 export async function getApplications(params?: {
   scheme_id?: string;
   current_state?: string;
+  queue?: string;
+  search?: string;
   page?: number;
   page_size?: number;
 }): Promise<ApplicationRead[]> {
   const searchParams = new URLSearchParams();
   if (params?.scheme_id) searchParams.set("scheme_id", params.scheme_id);
   if (params?.current_state) searchParams.set("current_state", params.current_state);
+  if (params?.queue) searchParams.set("queue", params.queue);
+  if (params?.search) searchParams.set("search", params.search);
   if (params?.page) searchParams.set("page", params.page.toString());
   if (params?.page_size) searchParams.set("page_size", params.page_size.toString());
   const qs = searchParams.toString();
   return apiFetch<ApplicationRead[]>(`/api/applications${qs ? `?${qs}` : ""}`);
+}
+
+export async function verifyInstitute(
+  applicationId: string,
+  data: {
+    decision: "VERIFIED" | "QUERY_RAISED" | "REJECTED";
+    remarks?: string;
+    institution_code?: string;
+  }
+): Promise<{
+  success: boolean;
+  message: string;
+  status: string;
+  application_state: string;
+  current_responsible_role: string;
+}> {
+  return apiFetch(`/api/applications/${applicationId}/institute-verify`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function getApplication(id: string): Promise<ApplicationRead> {
@@ -410,6 +434,7 @@ export interface DocumentRead {
   doc_type: string;
   storage_key: string;
   status: "PENDING" | "VERIFIED" | "DEFICIENT";
+  content_type?: string | null;
   extracted_fields?: Record<string, unknown> | null;
   deficiency_reasons?: Array<{ code: string; message: string }> | null;
   uploaded_at: string;
@@ -482,6 +507,48 @@ export async function resubmitDocument(
     `/api/applications/${applicationId}/documents/${documentId}/resubmit`,
     { method: "POST", body: formData }
   );
+}
+
+export async function recordScrutinyDecision(
+  applicationId: string,
+  decision: "APPROVE" | "DEFICIENT" | "REJECT",
+  remarks?: string
+): Promise<{ success: boolean; message: string; application: ApplicationRead; decision: string }> {
+  return apiFetch<{ success: boolean; message: string; application: ApplicationRead; decision: string }>(
+    `/api/applications/${applicationId}/scrutiny-decision`,
+    {
+      method: "POST",
+      body: JSON.stringify({ decision, remarks }),
+    }
+  );
+}
+
+export async function verifyDocumentByOfficer(
+  documentId: string,
+  remarks?: string,
+  applicationId?: string
+): Promise<DocumentRead> {
+  const url = applicationId
+    ? `/api/applications/${applicationId}/documents/${documentId}/verify`
+    : `/api/applications/documents/${documentId}/verify`;
+  return apiFetch<DocumentRead>(url, {
+    method: "POST",
+    body: JSON.stringify({ remarks: remarks || "Manually verified by Scrutiny Officer" }),
+  });
+}
+
+export async function flagDocumentDeficientByOfficer(
+  documentId: string,
+  remarks: string,
+  applicationId?: string
+): Promise<DocumentRead> {
+  const url = applicationId
+    ? `/api/applications/${applicationId}/documents/${documentId}/flag-deficient`
+    : `/api/applications/documents/${documentId}/flag-deficient`;
+  return apiFetch<DocumentRead>(url, {
+    method: "POST",
+    body: JSON.stringify({ remarks, reason_code: "OFFICER_FLAGGED" }),
+  });
 }
 
 // ── Transitions API ──────────────────────────────────────────────────────────
@@ -816,9 +883,10 @@ export interface CaseFileData {
   current_user_role: string;
   sla?: {
     stage_entry_time: string | null;
-    deadline: string;
+    deadline: string | null;
     sla_hours: number;
     is_breached: boolean;
+    is_completed?: boolean;
     remaining_hours: number;
     remaining_minutes: number;
     formatted_status: string;
