@@ -17,5 +17,5 @@ const nextConfig: NextConfig = {
   },
 };
 
+// Production deployment trigger
 export default nextConfig;
-
