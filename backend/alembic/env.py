@@ -26,7 +26,10 @@ target_metadata = Base.metadata
 
 # -- Override sqlalchemy.url from our Settings --------------------------------
 from app.core.config import get_settings    # noqa: E402
-config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
+_db_url = get_settings().DATABASE_URL
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+config.set_main_option("sqlalchemy.url", _db_url)
 
 
 def run_migrations_offline() -> None:
