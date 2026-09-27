@@ -1,0 +1,106 @@
+name: Automatic Multi-Repo & Fork Synchronization
+
+on:
+  push:
+    branches: [ master, main ]
+  schedule:
+    # Run every 30 minutes to ensure all forks and upstream remain in sync
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: 'Force sync regardless of branch state'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync Repositories & Forks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Current Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git User
+        run: |
+          git config --global user.name "YojanaSetu-SyncBot"
+          git config --global user.email "bot@yojanasetu.gov.in"
+
+      # -----------------------------------------------------------------------
+      # Scenario 1: Running in a Fork (e.g. adityamittal9012/YOJANA-SETU)
+      # Pull latest changes from upstream Singh4Ashmeet/SC-ST_SIH2026 and push to fork
+      # -----------------------------------------------------------------------
+      - name: Sync Fork from Upstream
+        if: github.repository != 'Singh4Ashmeet/SC-ST_SIH2026'
+        env:
+          UPSTREAM_URL: "https://github.com/Singh4Ashmeet/SC-ST_SIH2026.git"
+          SYNC_PAT: ${{ secrets.SYNC_PAT }}
+        run: |
+          echo ">>> Current repository is a fork: ${{ github.repository }}"
+          echo ">>> Fetching latest changes from upstream: $UPSTREAM_URL"
+          
+          git remote add upstream "$UPSTREAM_URL" || git remote set-url upstream "$UPSTREAM_URL"
+          git fetch upstream master || git fetch upstream main
+          
+          UPSTREAM_BRANCH="master"
+          if git show-ref --verify --quiet refs/remotes/upstream/master; then
+            UPSTREAM_BRANCH="master"
+          else
+            UPSTREAM_BRANCH="main"
+          fi
+          
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo ">>> Current branch: $CURRENT_BRANCH | Upstream branch: $UPSTREAM_BRANCH"
+          
+          # Merge upstream into current branch
+          git merge "upstream/$UPSTREAM_BRANCH" --no-edit || {
+            echo ">>> Fast-forward/merge conflict detected, attempting rebase..."
+            git merge --abort || true
+            git rebase "upstream/$UPSTREAM_BRANCH" || {
+              echo ">>> Rebase conflict. Please resolve manually or overwrite."
+              git rebase --abort
+              exit 1
+            }
+          }
+          
+          echo ">>> Pushing merged commits to fork origin..."
+          git push origin "$CURRENT_BRANCH"
+          echo ">>> Successfully synced fork with upstream!"
+
+          # If the fork has SYNC_PAT with push rights to upstream, also push back to upstream
+          if [ -n "$SYNC_PAT" ]; then
+            echo ">>> SYNC_PAT detected in fork. Syncing back to upstream..."
+            git remote add authenticated-upstream "https://x-access-token:${SYNC_PAT}@github.com/Singh4Ashmeet/SC-ST_SIH2026.git" || true
+            git push authenticated-upstream "$CURRENT_BRANCH:$UPSTREAM_BRANCH" || echo ">>> Note: Push to upstream failed. Ensure SYNC_PAT has write access to Singh4Ashmeet/SC-ST_SIH2026."
+          fi
+
+      # -----------------------------------------------------------------------
+      # Scenario 2: Running in Upstream (Singh4Ashmeet/SC-ST_SIH2026)
+      # Push changes to known forks (e.g. adityamittal9012/YOJANA-SETU)
+      # -----------------------------------------------------------------------
+      - name: Sync Upstream to Aditya Mittal Repo
+        if: github.repository == 'Singh4Ashmeet/SC-ST_SIH2026'
+        env:
+          SYNC_PAT: ${{ secrets.SYNC_PAT || secrets.GH_PAT }}
+          FORK_REPO: "adityamittal9012/YOJANA-SETU"
+        run: |
+          echo ">>> Current repository is upstream: ${{ github.repository }}"
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+          if [ -n "$SYNC_PAT" ]; then
+            echo ">>> SYNC_PAT secret found. Pushing commits directly to https://github.com/$FORK_REPO..."
+            git remote add target-fork "https://x-access-token:${SYNC_PAT}@github.com/${FORK_REPO}.git" || git remote set-url target-fork "https://x-access-token:${SYNC_PAT}@github.com/${FORK_REPO}.git"
+            git push target-fork "$CURRENT_BRANCH:master" --force-with-lease || git push target-fork "$CURRENT_BRANCH:master"
+            echo ">>> Push to $FORK_REPO completed successfully!"
+          else
+            echo ">>> NOTE: No SYNC_PAT secret found in Singh4Ashmeet/SC-ST_SIH2026."
+            echo ">>> The fork adityamittal9012/YOJANA-SETU will automatically pull and sync every 30 minutes via its scheduled workflow or manual 'Sync fork' button."
+            echo ">>> (To enable instant zero-second push from upstream to aditya, add a GitHub PAT named 'SYNC_PAT' in Settings > Secrets and variables > Actions)."
+          fi
