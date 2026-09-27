@@ -67,7 +67,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         path = request.url.path.lower()
         if "/file" in path or "/preview" in path:
             response.headers["X-Frame-Options"] = "SAMEORIGIN"
-            response.headers["Content-Security-Policy"] = "frame-ancestors 'self' http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000;"
+            response.headers["Content-Security-Policy"] = (
+                f"frame-ancestors 'self' {settings.FRONTEND_ORIGIN} https://*.vercel.app http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000;"
+            )
         else:
             response.headers["X-Frame-Options"] = "DENY"
             response.headers["Content-Security-Policy"] = "frame-ancestors 'none';"
@@ -86,7 +88,7 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001",
     ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:[0-9]+)?",
+    allow_origin_regex=r"https?://.*(vercel\.app|localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -29,7 +29,11 @@ engine_kwargs = {
     "echo": settings.DEBUG,
 }
 
-if not settings.DATABASE_URL.startswith("sqlite"):
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+if not db_url.startswith("sqlite"):
     engine_kwargs.update({
         "pool_size": 20,
         "max_overflow": 30,
@@ -38,7 +42,7 @@ if not settings.DATABASE_URL.startswith("sqlite"):
     })
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     **engine_kwargs
 )
 
