@@ -87,12 +87,14 @@ def process_document(db: Session, document_id: uuid.UUID, file_bytes: Optional[b
 
     # Save results to document
     # Store raw_text in extracted_fields under _raw_text key and visual classification under _doc_classification
-    if document.extracted_fields is None:
-        document.extracted_fields = {}
+    from sqlalchemy.orm.attributes import flag_modified
 
-    document.extracted_fields["_raw_text"] = raw_text
-    document.extracted_fields["_doc_classification"] = doc_classification
-    document.extracted_fields.update(extracted)
+    new_extracted_fields = dict(document.extracted_fields or {})
+    new_extracted_fields["_raw_text"] = raw_text
+    new_extracted_fields["_doc_classification"] = doc_classification
+    new_extracted_fields.update(extracted)
+    document.extracted_fields = new_extracted_fields
+    flag_modified(document, "extracted_fields")
 
 # Run deficiency check
     try:

@@ -200,6 +200,21 @@ async def upload_document(
     # Refresh document to get updated extracted_fields
     db.refresh(document)
 
+    # Check if application was in 'deficient' state and all docs are now VERIFIED
+    if application.current_state == "deficient":
+        all_docs = db.query(Document).filter(Document.application_id == application_id).all()
+        if all(d.status == DocumentStatus.VERIFIED for d in all_docs):
+            try:
+                engine = WorkflowEngine(db)
+                engine.apply_transition(
+                    application=application,
+                    trigger="resubmitted",
+                    actor_user_id=current_user.id if current_user else None,
+                    details={"resubmitted_document_id": str(document.id)}
+                )
+            except Exception as e:
+                pass  # Ignore if transition not applicable
+
     # Generate presigned URL for response
     download_url = storage_service.get_presigned_url(document.storage_key)
 
@@ -566,15 +581,16 @@ def verify_document_by_officer(
     document.reviewed_at = datetime.now(timezone.utc)
     document.deficiency_reasons = []
 
-    if document.extracted_fields is None:
-        document.extracted_fields = {}
-
-    document.extracted_fields["_officer_review"] = {
+    from sqlalchemy.orm.attributes import flag_modified
+    fields = dict(document.extracted_fields or {})
+    fields["_officer_review"] = {
         "verified_by": current_user.email if current_user else "Scrutiny Officer",
         "role": current_user.role.value if current_user else "SCRUTINY_OFFICER",
         "verified_at": datetime.now(timezone.utc).isoformat(),
         "remarks": action.remarks if action else "Document manually verified by Officer",
     }
+    document.extracted_fields = fields
+    flag_modified(document, "extracted_fields")
 
     create_audit_log(
         db=db,
@@ -640,15 +656,16 @@ def flag_document_deficient_by_officer(
     document.reviewed_at = datetime.now(timezone.utc)
     document.deficiency_reasons = [{"code": code, "message": message}]
 
-    if document.extracted_fields is None:
-        document.extracted_fields = {}
-
-    document.extracted_fields["_officer_review"] = {
+    from sqlalchemy.orm.attributes import flag_modified
+    fields = dict(document.extracted_fields or {})
+    fields["_officer_review"] = {
         "flagged_by": current_user.email if current_user else "Scrutiny Officer",
         "role": current_user.role.value if current_user else "SCRUTINY_OFFICER",
         "flagged_at": datetime.now(timezone.utc).isoformat(),
         "remarks": message,
     }
+    document.extracted_fields = fields
+    flag_modified(document, "extracted_fields")
 
     create_audit_log(
         db=db,
